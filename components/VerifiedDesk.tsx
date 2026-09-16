@@ -10,6 +10,7 @@ import {
   VERIFIED_PARKED,
   VERIFIED_TOP5,
   canContact,
+  contactMethodLabel,
   telHref,
   verifiedToLead,
   type VerifiedLead,
@@ -137,7 +138,7 @@ export function VerifiedDesk() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.16em] text-mist">
-                      #{lead.rank} · {lead.intent}
+                      #{lead.rank} · {lead.opportunityScore} · {lead.confidence}
                     </p>
                     <h2 className="mt-1 text-lg text-paper">{lead.name}</h2>
                     <p className="mt-1 text-sm text-mist">
@@ -145,7 +146,7 @@ export function VerifiedDesk() {
                     </p>
                   </div>
                   <span className="rounded-full bg-moss/15 px-3 py-1 text-[11px] uppercase tracking-wider text-moss">
-                    {lead.play === "redesign" ? "Redesign" : "No website"}
+                    {lead.websiteStatus || (lead.play === "redesign" ? "Redesign" : "No website")}
                   </span>
                 </div>
                 {saved && <p className="mt-2 text-xs uppercase tracking-wider text-moss">In pipeline</p>}
@@ -156,7 +157,7 @@ export function VerifiedDesk() {
 
         <aside className="h-fit rounded-[2rem] border border-white/10 bg-clay p-5 lg:sticky lg:top-24">
           <p className="text-xs uppercase tracking-[0.16em] text-moss">
-            #{selected.rank} · {selected.intent} · {selected.play}
+            #{selected.rank} · {selected.opportunityScore} · {selected.confidence} · {selected.websiteStatus}
           </p>
           <h2 className="mt-2 font-display text-3xl tracking-tight">{selected.name}</h2>
           <p className="mt-2 text-sm text-mist">{selected.why}</p>
@@ -164,6 +165,7 @@ export function VerifiedDesk() {
           <dl className="mt-5 space-y-2 text-sm">
             <Row label="Call" value={selected.phone || "—"} href={selected.phone ? telHref(selected.phone) : undefined} />
             <Row label="Email" value={selected.email || "None on file — follow the call"} href={selected.email ? `mailto:${selected.email}` : undefined} />
+            <Row label="Contact" value={contactMethodLabel(selected.contactMethod)} />
             <Row label="Address" value={selected.address} />
             {selected.mailing && <Row label="Mail" value={selected.mailing} />}
             {selected.license && <Row label="License" value={selected.license} />}
@@ -241,6 +243,7 @@ export function VerifiedDesk() {
                   {lead.name}{" "}
                   <span className="text-xs uppercase tracking-wider text-ember">
                     {lead.status === "dnc" ? "DNC" : "HOLD"}
+                    {lead.confidence ? ` · ${lead.confidence}` : ""}
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-mist">{lead.why}</p>
