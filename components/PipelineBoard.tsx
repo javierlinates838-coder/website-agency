@@ -112,6 +112,7 @@ export function PipelineBoard() {
                       <h3 className="text-sm text-paper">{lead.name}</h3>
                       <p className="text-xs text-mist">
                         {lead.city} · {kindLabel(lead.kind)}
+                        {lead.source === "verified" ? " · Verified" : ""}
                       </p>
                     </div>
                     <ScoreMark score={lead.score} kind={lead.kind} compact />

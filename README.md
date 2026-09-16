@@ -2,15 +2,25 @@
 
 A small website for finding local businesses that still need a website — or a much better one.
 
-## What it does
+## Verified desk (start here)
 
-- Search a city and a trade (dentists, salons, plumbers, restaurants, and more).
-- Pull live listings from OpenStreetMap when available.
-- Score each business: no website, social-only, outdated, not mobile-ready, or fine as-is.
-- Draft email, SMS, DM, and voicemail outreach.
-- Save leads to a pipeline on this device and export CSV.
+The Bakersfield / Oildale desk is already ranked:
 
-Sample leads are clearly labeled. Do not contact sample rows as if they were real businesses.
+1. White Lane Donuts — no website
+2. Oildale Nails — no website
+3. Briceno Electric (Hector only) — no website for Hector
+4. Hometown Plumbing — outdated site
+5. Luna Electric Inc. — weak site, redesign
+
+Johnny's Barber is HOLD. Oildale Barber is DNC. Call and email scripts include the numbers to use and the ones to ignore.
+
+## Also included
+
+- City + trade finder from OpenStreetMap
+- Opportunity scoring (no website, social-only, outdated, not mobile)
+- Pipeline on this device, CSV export
+
+Sample finder rows are labeled **Sample**. Do not contact those as real businesses.
 
 ## Run it
 
@@ -20,8 +30,4 @@ npm test
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-## Notes
-
-Live search uses Nominatim and Overpass. If those services are slow or empty for a town, Beacon fills the board with sample leads so you can still practice the workflow.
+Open [http://localhost:3000](http://localhost:3000) and go to **Desk**.

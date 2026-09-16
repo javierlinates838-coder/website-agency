@@ -21,9 +21,9 @@ const signals = [
 ];
 
 const steps = [
-  "Pick a city and a trade you actually want to serve.",
-  "Scan the list. Beacon scores missing sites, social-only pages, and stale builds.",
-  "Save the names worth a conversation, copy a pitch, and move them through your pipeline.",
+  "Start with the verified Bakersfield desk. Those five are already ranked and safe.",
+  "Copy the call or email script. Contact rules stay on the card so you do not dial a burned number.",
+  "Save them to the pipeline. Use the map finder only when you need the next city.",
 ];
 
 export default function HomePage() {
@@ -35,28 +35,28 @@ export default function HomePage() {
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-moss">Client radar for web studios</p>
             <h1 className="mt-5 max-w-xl font-display text-5xl leading-[1.02] tracking-tight sm:text-7xl">
-              Find businesses that still need a real website.
+              Five Bakersfield shops that still need a real website.
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-8 text-mist">
-              Search a city. Beacon pulls local shops from open map data, flags the ones with no site, a Facebook page, or a
-              tired homepage, and drafts the first message you can send.
+              The desk is already cleared against primary sources. Call scripts, emails, HOLD/DNC parks, and a map
+              finder for the next city sit in one place. No outreach has been sent.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/finder" className="rounded-full bg-moss px-5 py-3 text-sm font-semibold text-ink">
-                Open the finder
+              <Link href="/desk" className="rounded-full bg-moss px-5 py-3 text-sm font-semibold text-ink">
+                Open the Bakersfield desk
               </Link>
-              <Link href="/playbook" className="rounded-full border border-white/15 px-5 py-3 text-sm text-paper">
-                How to reach out
+              <Link href="/finder" className="rounded-full border border-white/15 px-5 py-3 text-sm text-paper">
+                Scan another city
               </Link>
             </div>
             <dl className="mt-12 grid max-w-lg gap-4 text-sm sm:grid-cols-3">
               <div>
-                <dt className="text-mist">Looks for</dt>
-                <dd className="mt-1 text-paper">Missing, social-only, and outdated sites</dd>
+                <dt className="text-mist">Verified first</dt>
+                <dd className="mt-1 text-paper">Top 5 ranked, with numbers you can actually dial</dd>
               </div>
               <div>
                 <dt className="text-mist">Then writes</dt>
-                <dd className="mt-1 text-paper">Email, SMS, DM, and voicemail scripts</dd>
+                <dd className="mt-1 text-paper">Call, email, and voicemail scripts with do-not rules</dd>
               </div>
               <div>
                 <dt className="text-mist">You keep</dt>
@@ -66,26 +66,26 @@ export default function HomePage() {
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-clay p-5 shadow-glow">
-            <p className="text-xs uppercase tracking-[0.2em] text-mist">Example scan · Austin dentists</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-mist">Verified desk · Bakersfield</p>
             <div className="mt-5 space-y-3">
               {[
-                { name: "Maple & Pine Dental", score: 94, tag: "No website" },
-                { name: "Cedar Park Smiles", score: 88, tag: "Facebook only" },
-                { name: "Harborview Dentistry", score: 76, tag: "Copyright 2016" },
+                { name: "White Lane Donuts", tag: "No website · (661) 836-2906", rank: "HIGH" },
+                { name: "Hometown Plumbing", tag: "Outdated site · public email", rank: "HIGH" },
+                { name: "Luna Electric Inc.", tag: "Weak site · redesign", rank: "HIGH" },
               ].map((row) => (
                 <div key={row.name} className="flex items-center justify-between rounded-2xl bg-ink px-4 py-3">
                   <div>
                     <p className="text-paper">{row.name}</p>
                     <p className="text-xs text-mist">{row.tag}</p>
                   </div>
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-ember text-sm font-semibold">
-                    {row.score}
+                  <span className="rounded-full bg-ember px-2 py-1 text-[10px] font-semibold tracking-wider">
+                    {row.rank}
                   </span>
                 </div>
               ))}
             </div>
             <p className="mt-5 text-sm leading-6 text-mist">
-              Higher score means a clearer website problem — and a cleaner reason to say hello.
+              Johnny&apos;s Barber stays HOLD. Oildale Barber is DNC. The rest of the Top 5 is cleared to call.
             </p>
           </div>
         </section>
@@ -114,8 +114,8 @@ export default function HomePage() {
               </li>
             ))}
           </ol>
-          <Link href="/finder" className="mt-10 inline-flex rounded-full bg-paper px-5 py-3 text-sm font-medium text-ink">
-            Start a city scan
+          <Link href="/desk" className="mt-10 inline-flex rounded-full bg-paper px-5 py-3 text-sm font-medium text-ink">
+            Open the desk
           </Link>
         </section>
       </main>

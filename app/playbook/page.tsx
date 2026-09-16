@@ -15,17 +15,17 @@ const rules = [
     copy: "Dentists in two cities will teach you more than twenty random industries. Reuse the pitch. Improve the proof.",
   },
   {
-    title: "Do not spray a hundred names in a night",
-    copy: "Ten honest notes beat a blast. If Beacon labeled a row as sample data, do not pretend it is a live business.",
+    title: "Honor HOLD and DNC",
+    copy: "Johnny's Barber is parked on a name conflict. Oildale Barber is closed. A cleared Top 5 is useless if you also call the names that were parked for a reason.",
   },
 ];
 
 const week = [
-  "Monday: scan one city × one trade. Save the top ten.",
-  "Tuesday: send five emails and two DMs. Log them as Reached.",
-  "Wednesday: follow up anyone quiet. Offer a 15-minute call.",
-  "Thursday: build one free homepage mock for the warmest lead.",
-  "Friday: send the mock, then scan a second neighborhood.",
+  "Today: open the Bakersfield desk. Call White Lane Donuts, then Hometown Plumbing.",
+  "Same day: email Luna Electric and save every attempt as Reached.",
+  "Tomorrow: Oildale Nails and Hector at Briceno — ask for the owner, follow the do-not rules.",
+  "Thursday: one free homepage mock for whoever answered.",
+  "Friday: only then scan a second neighborhood in the finder.",
 ];
 
 export default function PlaybookPage() {
@@ -55,8 +55,8 @@ export default function PlaybookPage() {
             ))}
           </ol>
         </section>
-        <Link href="/finder" className="mt-10 inline-flex rounded-full bg-moss px-5 py-3 text-sm font-semibold text-ink">
-          Back to the finder
+        <Link href="/desk" className="mt-10 inline-flex rounded-full bg-moss px-5 py-3 text-sm font-semibold text-ink">
+          Open the Bakersfield desk
         </Link>
       </main>
       <SiteFooter />

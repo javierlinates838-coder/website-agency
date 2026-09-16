@@ -19,11 +19,11 @@ const FILTERS: { id: "all" | OpportunityKind; label: string }[] = [
 ];
 
 const SUGGESTIONS = [
+  { city: "Bakersfield, CA", industry: "plumbers" },
+  { city: "Bakersfield, CA", industry: "health" },
   { city: "Austin, TX", industry: "dentists" },
   { city: "Miami, FL", industry: "salons" },
   { city: "Phoenix, AZ", industry: "plumbers" },
-  { city: "Nashville, TN", industry: "restaurants" },
-  { city: "Denver, CO", industry: "lawyers" },
   { city: "Dallas, TX", industry: "auto" },
 ];
 
@@ -42,8 +42,8 @@ async function analyzeLead(lead: Lead): Promise<Lead> {
 }
 
 export function FinderApp() {
-  const [city, setCity] = useState("Austin, TX");
-  const [industry, setIndustry] = useState("dentists");
+  const [city, setCity] = useState("Bakersfield, CA");
+  const [industry, setIndustry] = useState("plumbers");
   const [radiusKm, setRadiusKm] = useState(8);
   const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -153,6 +153,14 @@ export function FinderApp() {
           {profile.name || profile.studio ? "Edit outreach profile" : "Add your name to pitches"}
         </button>
       </div>
+
+      <p className="mt-6 rounded-2xl border border-moss/25 bg-moss/10 px-4 py-3 text-sm text-paper">
+        Bakersfield is already cleared. Use{" "}
+        <Link href="/desk" className="text-moss underline">
+          the verified desk
+        </Link>{" "}
+        for the Top 5. This finder is for the next city or trade.
+      </p>
 
       {showProfile && (
         <form onSubmit={persistProfile} className="mt-6 grid gap-3 rounded-3xl border border-white/10 bg-clay p-5 sm:grid-cols-2">

@@ -15,7 +15,7 @@ const sans = Instrument_Sans({
 export const metadata: Metadata = {
   title: "Beacon — Find businesses that need a better website",
   description:
-    "Search a city, score local businesses, and reach out to the ones with missing, outdated, or underperforming websites.",
+    "A verified Bakersfield desk of shops that still need a website, plus a city scanner and outreach scripts.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

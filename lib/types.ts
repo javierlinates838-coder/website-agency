@@ -32,7 +32,7 @@ export type Lead = {
   score: number;
   kind: OpportunityKind;
   issues: string[];
-  source: "live" | "demo";
+  source: "live" | "demo" | "verified";
   analyzed: boolean;
   notes?: string;
   status?: LeadStatus;
