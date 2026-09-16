@@ -42,6 +42,16 @@ export function savePipeline(leads: Lead[]): void {
   window.localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
 }
 
+export function defaultProfile(): StudioProfile {
+  return {
+    name: "",
+    studio: "",
+    email: "",
+    city: "",
+    offer: "a fast, mobile site that turns searches into booked work",
+  };
+}
+
 export function upsertLead(lead: Lead, status: LeadStatus = "new"): Lead[] {
   if (findParkedMatch(lead)) {
     return loadPipeline();
@@ -49,7 +59,7 @@ export function upsertLead(lead: Lead, status: LeadStatus = "new"): Lead[] {
   const current = loadPipeline();
   const next: Lead = {
     ...lead,
-    status: lead.status || status,
+    status: migrateLeadStatus(lead.status || status),
     savedAt: lead.savedAt || new Date().toISOString(),
   };
   const index = current.findIndex((item) => item.id === next.id);
@@ -58,7 +68,7 @@ export function upsertLead(lead: Lead, status: LeadStatus = "new"): Lead[] {
     current[index] = {
       ...existing,
       ...next,
-      status: existing.status || next.status,
+      status: migrateLeadStatus(existing.status || next.status),
       notes: existing.notes ?? next.notes,
       followUpDate: existing.followUpDate ?? next.followUpDate,
       savedAt: existing.savedAt || next.savedAt,
@@ -74,7 +84,12 @@ export function updateLead(
   id: string,
   patch: Partial<Pick<Lead, "notes" | "followUpDate" | "status">>,
 ): Lead[] {
-  const current = loadPipeline().map((lead) => (lead.id === id ? { ...lead, ...patch } : lead));
+  const current = loadPipeline().map((lead) => {
+    if (lead.id !== id) return lead;
+    const next = { ...lead, ...patch };
+    if (patch.status !== undefined) next.status = migrateLeadStatus(patch.status);
+    return next;
+  });
   savePipeline(current);
   return current;
 }
@@ -90,13 +105,7 @@ export function removeLead(id: string): Lead[] {
 }
 
 export function loadProfile(): StudioProfile {
-  const fallback: StudioProfile = {
-    name: "",
-    studio: "",
-    email: "",
-    city: "",
-    offer: "a fast, mobile site that turns searches into booked work",
-  };
+  const fallback = defaultProfile();
   if (!canUseStorage()) return fallback;
   try {
     const raw = window.localStorage.getItem(PROFILE_KEY);

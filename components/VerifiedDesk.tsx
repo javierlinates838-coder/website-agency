@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { loadPipeline, loadProfile, saveProfile, upsertLead } from "@/lib/storage";
-import type { StudioProfile } from "@/lib/types";
+import { saveProfile, upsertLead } from "@/lib/storage";
+import { useHydratedPipeline, useHydratedProfile } from "@/lib/useClientStore";
 import {
   BAKERSFIELD_MARKET,
   VERIFIED_BENCH,
@@ -30,8 +30,9 @@ export function VerifiedDesk() {
   const [scriptKind, setScriptKind] = useState<ScriptKind>("call");
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<string[]>(() => loadPipeline().map((lead) => lead.id));
-  const [profile, setProfile] = useState<StudioProfile>(() => loadProfile());
+  const [pipeline, setPipeline] = useHydratedPipeline();
+  const savedIds = pipeline.map((lead) => lead.id);
+  const [profile, setProfile] = useHydratedProfile();
   const [showProfile, setShowProfile] = useState(false);
 
   const selected = useMemo(
@@ -56,12 +57,8 @@ export function VerifiedDesk() {
       setNotice(`${lead.name} is parked. Do not save it as outreach.`);
       return;
     }
-    upsertLead(verifiedToLead(lead));
-    setSavedIds((current) => {
-      const id = `verified:${lead.id}`;
-      return current.includes(id) ? current : [id, ...current];
-    });
-    setNotice(`${lead.name} is in your pipeline. Scripts stay on this desk until you send them.`);
+    setPipeline(upsertLead(verifiedToLead(lead)));
+    setNotice(`${lead.name} is in your pipeline. Open Pipeline to mark Contacted or Follow Up.`);
   }
 
   function persistProfile(event: React.FormEvent<HTMLFormElement>) {
@@ -115,15 +112,15 @@ export function VerifiedDesk() {
 
       <p className="mt-6 rounded-2xl border border-white/10 bg-sand px-4 py-3 text-sm text-paper">
         {BAKERSFIELD_MARKET.sources} Johnny&apos;s Barber is HOLD. Oildale Barber is DNC. Everything in the Top 5 is
-        safe to pursue — you still have to send it.{" "}
-        <Link href="/finder" className="text-moss underline">
-          Finder
-        </Link>{" "}
-        is the next city.{" "}
+        safe to pursue — you still have to send it. Workflow: Desk → evaluate → save →{" "}
         <Link href="/pipeline" className="text-moss underline">
           Pipeline
         </Link>{" "}
-        is saved work.
+        (Contacted / Follow Up / Won / Lost).{" "}
+        <Link href="/finder" className="text-moss underline">
+          Finder
+        </Link>{" "}
+        is the next city.
       </p>
 
       {notice && (

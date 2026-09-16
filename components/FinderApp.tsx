@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { INDUSTRIES } from "@/lib/industries";
 import { compareLeads, kindLabel } from "@/lib/score";
-import { loadPipeline, loadProfile, saveProfile, toCsv, updateLead, upsertLead } from "@/lib/storage";
+import { saveProfile, toCsv, updateLead, upsertLead } from "@/lib/storage";
 import { buildPitch } from "@/lib/templates";
-import type { Lead, OpportunityKind, SearchResponse, StudioProfile } from "@/lib/types";
+import type { Lead, OpportunityKind, SearchResponse } from "@/lib/types";
+import { useHydratedPipeline, useHydratedProfile } from "@/lib/useClientStore";
 import {
   annotateFinderLead,
   contactMethodLabel,
   findParkedMatch,
+  parkedLast,
   pipelineIdFor,
   statusLabel,
   verifiedToLead,
@@ -63,11 +65,11 @@ export function FinderApp() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pipeline, setPipeline] = useState<Lead[]>(() => loadPipeline());
+  const [pipeline, setPipeline] = useHydratedPipeline();
   const [pitchStyle, setPitchStyle] = useState<"email" | "sms" | "dm" | "voicemail">("email");
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [profile, setProfile] = useState<StudioProfile>(() => loadProfile());
+  const [profile, setProfile] = useHydratedProfile();
   const [showProfile, setShowProfile] = useState(false);
 
   const savedIds = useMemo(() => pipeline.map((lead) => lead.id), [pipeline]);
@@ -75,12 +77,7 @@ export function FinderApp() {
 
   const visible = useMemo(() => {
     const filtered = filter === "all" ? leads : leads.filter((lead) => lead.kind === filter);
-    return [...filtered].sort((a, b) => {
-      const aParked = findParkedMatch(a) ? 1 : 0;
-      const bParked = findParkedMatch(b) ? 1 : 0;
-      if (aParked !== bParked) return aParked - bParked;
-      return compareLeads(a, b);
-    });
+    return [...filtered].sort((a, b) => parkedLast(a, b) || compareLeads(a, b));
   }, [leads, filter]);
 
   const parkedHits = useMemo(() => leads.filter((lead) => findParkedMatch(lead)), [leads]);
@@ -88,6 +85,12 @@ export function FinderApp() {
   const selectedParked = selectedMeta?.parked;
   const selectedSaved = selected ? savedIds.includes(pipelineIdFor(selected)) : false;
   const selectedSavedRecord = selected ? pipeline.find((lead) => lead.id === pipelineIdFor(selected)) : undefined;
+  const selectedPhone = selectedParked
+    ? selected?.phone
+    : selectedMeta?.verified?.phone || selected?.phone;
+  const selectedWebsite = selectedParked
+    ? selected?.website
+    : selectedMeta?.verified?.website || selected?.website;
 
   async function runSearch(nextCity = city, nextIndustry = industry, nextDemo = demo) {
     setLoading(true);
@@ -119,7 +122,7 @@ export function FinderApp() {
             const index = next.findIndex((lead) => lead.id === updated.id);
             if (index >= 0) next[index] = updated;
           }
-          setLeads([...next].sort(compareLeads));
+          setLeads([...next].sort((a, b) => parkedLast(a, b) || compareLeads(a, b)));
         }
       }
     } catch (error) {
@@ -184,11 +187,12 @@ export function FinderApp() {
       </div>
 
       <p className="mt-6 rounded-2xl border border-moss/25 bg-moss/10 px-4 py-3 text-sm text-paper">
-        Desk is the verified Bakersfield Top 5. This finder is the next city or trade. Save a name, then work it in{" "}
+        Desk is the verified Bakersfield Top 5. Finder is the next city or trade: search, evaluate, save. Then work the
+        name in{" "}
         <Link href="/pipeline" className="text-moss underline">
           Pipeline
-        </Link>
-        .
+        </Link>{" "}
+        as Contacted or Follow Up. HOLD/DNC matches cannot be saved or pitched. Sample rows stay labeled Sample.
       </p>
 
       {showProfile && (
@@ -295,7 +299,7 @@ export function FinderApp() {
         <div className="mt-10 rounded-[2rem] border border-dashed border-white/15 px-6 py-16 text-center">
           <p className="font-display text-3xl">Pick a city and a trade.</p>
           <p className="mx-auto mt-3 max-w-lg text-mist">
-            Find scores the list. Save the ones worth a conversation. HOLD/DNC matches stay blocked.
+            Find scores the list. Save the ones worth a conversation, then open Pipeline. HOLD/DNC matches stay blocked.
           </p>
         </div>
       )}
@@ -401,7 +405,7 @@ export function FinderApp() {
                     {selectedMeta.verified ? " · verified" : selected.source === "demo" ? " · sample" : " · live"}
                   </dd>
                 </div>
-                {selectedMeta.confidence ? (
+                {selectedMeta.verified && selectedMeta.confidence ? (
                   <div className="flex justify-between gap-4">
                     <dt className="text-mist">Confidence</dt>
                     <dd>{selectedMeta.confidence}</dd>
@@ -423,15 +427,17 @@ export function FinderApp() {
                 ) : null}
                 <div className="flex justify-between gap-4">
                   <dt className="text-mist">Phone</dt>
-                  <dd>{selected.phone || selectedMeta.verified?.phone || "Not listed"}</dd>
+                  <dd>{selectedPhone || "Not listed"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-mist">Website</dt>
                   <dd className="truncate text-right">
-                    {selected.website ? (
-                      <a className="text-moss hover:underline" href={selected.website} target="_blank" rel="noreferrer">
-                        {selected.website.replace(/^https?:\/\//, "")}
+                    {selectedWebsite ? (
+                      <a className="text-moss hover:underline" href={selectedWebsite} target="_blank" rel="noreferrer">
+                        {selectedWebsite.replace(/^https?:\/\//, "")}
                       </a>
+                    ) : !selectedParked && selectedMeta.verified?.websiteNote ? (
+                      selectedMeta.verified.websiteNote
                     ) : (
                       "None listed"
                     )}
@@ -461,8 +467,8 @@ export function FinderApp() {
                 <Link className="rounded-full border border-white/15 px-4 py-2 text-sm" href="/pipeline">
                   Open pipeline
                 </Link>
-                {selected.phone && !selectedParked && (
-                  <a className="rounded-full border border-white/15 px-4 py-2 text-sm" href={`tel:${selected.phone}`}>
+                {selectedPhone && !selectedParked && (
+                  <a className="rounded-full border border-white/15 px-4 py-2 text-sm" href={`tel:${selectedPhone}`}>
                     Call
                   </a>
                 )}
@@ -487,38 +493,44 @@ export function FinderApp() {
                 </label>
               )}
 
-              <div className="mt-8">
-                <div className="flex flex-wrap gap-2">
-                  {(["email", "sms", "dm", "voicemail"] as const).map((style) => (
-                    <button
-                      key={style}
-                      type="button"
-                      className="chip capitalize"
-                      data-active={pitchStyle === style}
-                      onClick={() => setPitchStyle(style)}
-                    >
-                      {style}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  readOnly
-                  className="mt-3 min-h-48 text-sm leading-6"
-                  value={buildPitch(selected, pitchStyle, profile)}
-                />
-                <button
-                  type="button"
-                  disabled={Boolean(selectedParked)}
-                  onClick={() => copyPitch(selected)}
-                  className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {selectedParked ? "Pitch blocked" : copied ? "Copied" : "Copy\u00a0pitch"}
-                </button>
-                <p className="mt-3 text-xs text-mist">
-                  {kindLabel(selected.kind)} is the angle. Copy the pitch and send it yourself — Beacon does not email or
-                  call for you.
+              {selectedParked ? (
+                <p className="mt-8 rounded-2xl border border-ember/30 bg-ember/10 px-4 py-3 text-sm text-paper">
+                  {statusLabel(selectedParked.status)} — do not pitch or save this name. It cannot become an actionable
+                  pipeline card.
                 </p>
-              </div>
+              ) : (
+                <div className="mt-8">
+                  <div className="flex flex-wrap gap-2">
+                    {(["email", "sms", "dm", "voicemail"] as const).map((style) => (
+                      <button
+                        key={style}
+                        type="button"
+                        className="chip capitalize"
+                        data-active={pitchStyle === style}
+                        onClick={() => setPitchStyle(style)}
+                      >
+                        {style}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    readOnly
+                    className="mt-3 min-h-48 text-sm leading-6"
+                    value={buildPitch(selected, pitchStyle, profile)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copyPitch(selected)}
+                    className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
+                  >
+                    {copied ? "Copied" : "Copy\u00a0pitch"}
+                  </button>
+                  <p className="mt-3 text-xs text-mist">
+                    {kindLabel(selected.kind)} is the angle. Copy the pitch and send it yourself — Beacon does not email
+                    or call for you.
+                  </p>
+                </div>
+              )}
             </aside>
           )}
         </div>

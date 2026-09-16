@@ -23,7 +23,7 @@ const signals = [
 const steps = [
   "Start with the verified Bakersfield desk. Those five are already ranked and safe.",
   "Copy the call or email script. Contact rules stay on the card so you do not dial a burned number.",
-  "Save them to the pipeline. Update status and notes there. Use Finder only when you need the next city.",
+  "Save them to the pipeline. Mark Contacted or Follow Up there. Use Finder only when you need the next city.",
 ];
 
 export default function HomePage() {

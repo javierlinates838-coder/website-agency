@@ -85,6 +85,13 @@ export function findParkedMatch(
   return matchByPhoneOrName(lead, parked);
 }
 
+export function parkedLast(
+  a: { name: string; phone?: string | null },
+  b: { name: string; phone?: string | null },
+): number {
+  return Number(Boolean(findParkedMatch(a))) - Number(Boolean(findParkedMatch(b)));
+}
+
 export function findVerifiedMatch(
   lead: { id?: string; name: string; phone?: string | null },
   safe: readonly VerifiedLead[] = VERIFIED_TOP5,

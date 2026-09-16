@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { kindLabel } from "@/lib/score";
-import { loadPipeline, removeLead, savePipeline, toCsv, updateLead, updateLeadStatus } from "@/lib/storage";
+import { removeLead, savePipeline, toCsv, updateLead, updateLeadStatus } from "@/lib/storage";
 import type { Lead, LeadStatus } from "@/lib/types";
+import { useHydratedPipeline } from "@/lib/useClientStore";
 import { ScoreMark } from "./ScoreMark";
 
 const COLUMNS: { id: LeadStatus; label: string; hint: string }[] = [
@@ -16,11 +17,14 @@ const COLUMNS: { id: LeadStatus; label: string; hint: string }[] = [
 ];
 
 function todayStamp(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 export function PipelineBoard() {
-  const [leads, setLeads] = useState<Lead[]>(() => loadPipeline());
+  const [leads, setLeads, hydrated] = useHydratedPipeline();
   const [dragging, setDragging] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
@@ -66,13 +70,21 @@ export function PipelineBoard() {
     setLeads([]);
   }
 
+  if (!hydrated) {
+    return (
+      <div className="rounded-[2rem] border border-white/10 px-6 py-16 text-center">
+        <p className="text-sm text-mist">Loading saved work…</p>
+      </div>
+    );
+  }
+
   if (leads.length === 0) {
     return (
       <div className="rounded-[2rem] border border-dashed border-white/15 px-6 py-16 text-center">
         <p className="font-display text-3xl">No saved businesses yet.</p>
         <p className="mx-auto mt-3 max-w-md text-mist">
-          Start on the verified desk, or find the next city. Save a name and it lands here so you can update status,
-          notes, and a follow-up date.
+          Start on the verified desk, or find the next city. Save a name and it lands here so you can move it New →
+          Contacted → Follow Up, then Won or Lost — with notes and a follow-up date.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href="/desk" className="inline-flex rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink">

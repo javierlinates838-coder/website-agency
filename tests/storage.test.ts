@@ -109,6 +109,13 @@ describe("pipeline persistence", () => {
     expect(loadPipeline()[0].id).toBe("verified:white-lane-donuts");
   });
 
+  it("migrates stale statuses on upsert so old columns cannot be written back", () => {
+    upsertLead({ ...liveLead(), status: "meeting" } as unknown as Lead);
+    expect(loadPipeline()[0].status).toBe("follow_up");
+    upsertLead({ ...liveLead(), id: "two", name: "Two", status: "passed" } as unknown as Lead);
+    expect(loadPipeline().find((lead) => lead.id === "two")?.status).toBe("lost");
+  });
+
   it("round-trips a cleared board", () => {
     upsertLead(liveLead());
     savePipeline([]);
