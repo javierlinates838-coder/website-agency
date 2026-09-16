@@ -1,11 +1,22 @@
 # Grok integration plan — inspection only
 
-**Status:** Planning / inspection. No application code changes in this PR.  
+**Status:** Phase 1 done (2026-09-16). Inspection notes below are kept as history.  
 **Base:** `cursor/client-finder-website-09df` @ `1d5f749`  
 **Branch:** `grok/client-finder-integration`  
 **Date:** 2026-09-16  
 
-This document answers the four inspection questions from a full read of the Beacon codebase plus the three Bakersfield research files. Do not treat this as approval to implement.
+## Phase 1 shipped
+
+Tight first PR after approval is implemented on this branch. No outreach, send APIs, spend, or deploy.
+
+1. `VerifiedLead` now has `opportunityScore`, `confidence` (`HIGH` | `MEDIUM` | `LOW`), `websiteStatus` (`NONE` | `WEAK` | `OUTDATED` | `ADEQUATE` | `UNCLEAR` | `CLOSED`), and `contactMethod` (`phone` | `phone_or_email` | `none`). The desk shows score, confidence, website status, and contact method lightly.
+2. `verifiedToLead().score` copies `opportunityScore`. The 94/82 intent proxy is gone. HOLD/DNC conversion throws instead of saving.
+3. Top 5 research values: White Lane 82 HIGH NONE phone (ignore 827-9606); Oildale Nails 72 MEDIUM NONE phone; Briceno Hector 74 MEDIUM NONE phone (ignore William site/email); Hometown 68 HIGH OUTDATED phone_or_email, CSLB `#850879`, Empire State / PO Box, discard Norris; Luna 62 HIGH WEAK phone_or_email, CSLB `#1008195` with the mirror caveat in `doNot`. Johnny is HOLD LOW and cannot save. Oildale Barber is DNC and cannot save.
+4. Tests cover Top 5 fields, score wiring, HOLD/DNC block, and that no send/email/SMS endpoints were added.
+
+Still out of scope: finder de-dupe, bench records, JSON extraction, activity log, outreach.
+
+This document answers the four inspection questions from a full read of the Beacon codebase plus the three Bakersfield research files. The inspection section is historical; Phase 1 above is what shipped.
 
 ---
 
@@ -50,9 +61,9 @@ Tech stack: Next.js 15 (App Router), React 19, TypeScript, Tailwind 3, Vitest. N
 
 ### Verified desk `VerifiedLead` (`lib/verified.ts`)
 
-`id`, `rank?`, `name`, `trade`, `intent?` (`high` \| `medium`), `status` (`safe` \| `hold` \| `dnc`), `phone?`, `ignorePhones?`, `ignoreEmails?`, `ignoreSites?`, `email?`, `address`, `mailing?`, `discardAddresses?`, `website?`, `websiteNote?`, `why`, `doNot[]`, `play?` (`greenfield` \| `redesign`), `city`, `license?`.
+`id`, `rank?`, `name`, `trade`, `intent?` (`high` \| `medium`), **Phase 1:** `opportunityScore?`, `confidence?` (`HIGH` \| `MEDIUM` \| `LOW`), `websiteStatus?` (`NONE` \| `WEAK` \| `OUTDATED` \| `ADEQUATE` \| `UNCLEAR` \| `CLOSED`), `contactMethod?` (`phone` \| `phone_or_email` \| `none`), `status` (`safe` \| `hold` \| `dnc`), `phone?`, `ignorePhones?`, `ignoreEmails?`, `ignoreSites?`, `email?`, `address`, `mailing?`, `discardAddresses?`, `website?`, `websiteNote?`, `why`, `doNot[]`, `play?` (`greenfield` \| `redesign`), `city`, `license?`.
 
-Pipeline conversion (`verifiedToLead`) is lossy: it keeps name/phone/email/website/address/city/issues/notes, sets `source: "verified"`, maps `play` → `kind` (`redesign` → `outdated`, else `no_website`), and maps `intent` → `score` (`high` → 94, `medium` → 82, else 70). It does **not** persist rank, contact status, confidence, mailing, ignore-lists, license, or play as first-class pipeline fields.
+Pipeline conversion (`verifiedToLead`) keeps name/phone/email/website/address/city/issues/notes, sets `source: "verified"`, maps `play` → `kind` (`redesign` → `outdated`, else `no_website`), and copies `opportunityScore` → `score`. HOLD/DNC throws. It does **not** persist rank, contact status, confidence, mailing, ignore-lists, license, or play as first-class pipeline fields.
 
 CSV columns (`toCsv`): Name, Industry, City, Address, Phone, Email, Website, Score, Opportunity, Issues, Status.
 
@@ -73,9 +84,9 @@ Otherwise adds points for fetch errors, HTTP 4xx/5xx, HTTP (not HTTPS), parked/d
 
 OSM search (`lib/osm.ts`) scores from the listed URL only (no HTML) until the client later POSTs `/api/analyze` in batches of 3. Demo leads (`lib/demo.ts`) are pre-scored with synthetic HTML.
 
-### 2. Verified-desk proxy scores (`verifiedToLead`)
+### 2. Verified-desk scores (`verifiedToLead`)
 
-Research opportunity scores (82 / 72 / 74 / 68 / 62 …) are **not** stored. The desk UI ranks by hardcoded `rank`. Pipeline cards get the intent proxy above, so Hometown (research 68, redesign) becomes 94 in the pipeline, while Oildale Nails (research 72, greenfield) becomes 82. That inverts research ranking if someone sorts the pipeline by `score`.
+Phase 1 stores research opportunity scores (82 / 72 / 74 / 68 / 62) on `VerifiedLead.opportunityScore` and copies them to pipeline `score`. The old intent proxy (high → 94, medium → 82) is removed so Hometown (68) no longer outranks Oildale Nails (72) in the pipeline.
 
 ---
 
@@ -177,12 +188,12 @@ Scripts stay copy-only. Saving to pipeline does not send. Playbook remains the �
 
 Prioritized small steps. **Do not start until the user approves.**
 
-### First PR after approval (tight)
+### First PR after approval (tight) — DONE (Phase 1)
 
-1. Introduce `opportunityScore`, `confidence`, `websiteStatus`, `contactMethod` on `VerifiedLead`.
-2. Point `verifiedToLead().score` at `opportunityScore` so pipeline rank matches research.
-3. Add Luna license `#1008195` (mirror caveat in `doNot`) and Hometown `#850879`.
-4. Tests: Top 5 scores/confidence match the flag-resolution file; HOLD/DNC still cannot be saved; no send endpoints added.
+1. Introduce `opportunityScore`, `confidence`, `websiteStatus`, `contactMethod` on `VerifiedLead`. **Done.**
+2. Point `verifiedToLead().score` at `opportunityScore` so pipeline rank matches research. **Done.**
+3. Add Luna license `#1008195` (mirror caveat in `doNot`) and Hometown `#850879`. **Done.**
+4. Tests: Top 5 scores/confidence match the flag-resolution file; HOLD/DNC still cannot be saved; no send endpoints added. **Done.**
 
 Out of scope for that first PR: finder de-dupe, bench records, JSON file extraction, activity log.
 
@@ -217,6 +228,6 @@ Out of scope for that first PR: finder de-dupe, bench records, JSON file extract
 
 ## Success check for this inspection run
 
-- Branch `grok/client-finder-integration` is based on `cursor/client-finder-website-09df`.
-- Application source/UI/API unchanged except this planning doc.
-- The four sections above are from the real tree, not guesses.
+Historical (planning commit): branch based on `cursor/client-finder-website-09df`, docs-only.
+
+**Phase 1 success:** tests pass; Top 5 research scores/confidence/websiteStatus/contactMethod are first-class; `verifiedToLead` uses `opportunityScore`; HOLD/DNC cannot save; no send endpoints; this file notes Phase 1 done.

@@ -3,6 +3,9 @@ import type { Lead } from "./types";
 export type ContactStatus = "safe" | "hold" | "dnc";
 export type Intent = "high" | "medium";
 export type Play = "greenfield" | "redesign";
+export type Confidence = "HIGH" | "MEDIUM" | "LOW";
+export type WebsiteStatus = "NONE" | "WEAK" | "OUTDATED" | "ADEQUATE" | "UNCLEAR" | "CLOSED";
+export type ContactMethod = "phone" | "phone_or_email" | "none";
 
 export type VerifiedLead = {
   id: string;
@@ -10,6 +13,10 @@ export type VerifiedLead = {
   name: string;
   trade: string;
   intent?: Intent;
+  opportunityScore?: number;
+  confidence?: Confidence;
+  websiteStatus?: WebsiteStatus;
+  contactMethod?: ContactMethod;
   status: ContactStatus;
   phone?: string;
   ignorePhones?: string[];
@@ -43,6 +50,10 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     name: "White Lane Donuts",
     trade: "Bakery / donuts",
     intent: "high",
+    opportunityScore: 82,
+    confidence: "HIGH",
+    websiteStatus: "NONE",
+    contactMethod: "phone",
     status: "safe",
     phone: "(661) 836-2906",
     ignorePhones: ["(661) 827-9606"],
@@ -59,6 +70,10 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     name: "Oildale Nails",
     trade: "Nail salon",
     intent: "medium",
+    opportunityScore: 72,
+    confidence: "MEDIUM",
+    websiteStatus: "NONE",
+    contactMethod: "phone",
     status: "safe",
     phone: "(661) 391-8830",
     address: "2509 N Chester Ave, Oildale, CA",
@@ -74,6 +89,10 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     name: "Briceno Electric (Hector only)",
     trade: "Electrician",
     intent: "medium",
+    opportunityScore: 74,
+    confidence: "MEDIUM",
+    websiteStatus: "NONE",
+    contactMethod: "phone",
     status: "safe",
     phone: "(661) 599-9646",
     ignoreEmails: ["williamb@"],
@@ -96,6 +115,10 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     name: "Hometown Plumbing",
     trade: "Plumbing",
     intent: "high",
+    opportunityScore: 68,
+    confidence: "HIGH",
+    websiteStatus: "OUTDATED",
+    contactMethod: "phone_or_email",
     status: "safe",
     phone: "(661) 837-4569",
     email: "hometownplumbing@att.net",
@@ -108,6 +131,7 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     doNot: ["Discard the Norris Rd address."],
     play: "redesign",
     city: "Bakersfield, CA",
+    license: "CSLB #850879",
   },
   {
     id: "luna-electric",
@@ -115,6 +139,10 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     name: "Luna Electric Inc.",
     trade: "Electrician",
     intent: "high",
+    opportunityScore: 62,
+    confidence: "HIGH",
+    websiteStatus: "WEAK",
+    contactMethod: "phone_or_email",
     status: "safe",
     phone: "(661) 461-8042",
     email: "accounting@lunaelectric07.com",
@@ -122,9 +150,12 @@ export const VERIFIED_TOP5: VerifiedLead[] = [
     website: "https://lunaelectric07.com",
     websiteNote: "WEAK — SEO-spam title and typos. Redesign, not greenfield.",
     why: "Contacts consistent across sources. Redesign, not a from-scratch site.",
-    doNot: [],
+    doNot: [
+      "CSLB #1008195 is mirror-corroborated only. Do not claim live board confirmation until rechecked.",
+    ],
     play: "redesign",
     city: "Bakersfield, CA",
+    license: "CSLB #1008195",
   },
 ];
 
@@ -133,6 +164,9 @@ export const VERIFIED_PARKED: VerifiedLead[] = [
     id: "johnnys-barber",
     name: "Johnny's Barber",
     trade: "Barber",
+    confidence: "LOW",
+    websiteStatus: "UNCLEAR",
+    contactMethod: "none",
     status: "hold",
     address: "Bakersfield / Oildale — identity unresolved",
     why: "HOLD. Multi-shop / trade-name conflict. Do not outreach until the shop identity is unstuck.",
@@ -143,6 +177,8 @@ export const VERIFIED_PARKED: VerifiedLead[] = [
     id: "oildale-barber",
     name: "Oildale Barber",
     trade: "Barber",
+    websiteStatus: "CLOSED",
+    contactMethod: "none",
     status: "dnc",
     address: "Closed / Norris Barber Shop",
     why: "DO NOT CONTACT. Closed, or it is Norris Barber Shop — not an open lead.",
@@ -171,9 +207,21 @@ export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 
+export function contactMethodLabel(method?: ContactMethod): string {
+  if (method === "phone") return "Phone";
+  if (method === "phone_or_email") return "Phone or email";
+  if (method === "none") return "None";
+  return "—";
+}
+
 export function verifiedToLead(lead: VerifiedLead): Lead {
+  if (!canContact(lead)) {
+    throw new Error(`${lead.name} is ${lead.status.toUpperCase()} and cannot be saved to the pipeline.`);
+  }
+  if (typeof lead.opportunityScore !== "number") {
+    throw new Error(`${lead.name} is missing opportunityScore.`);
+  }
   const kind = lead.play === "redesign" ? "outdated" : "no_website";
-  const score = lead.intent === "high" ? 94 : lead.intent === "medium" ? 82 : 70;
   return {
     id: `verified:${lead.id}`,
     name: lead.name,
@@ -184,7 +232,7 @@ export function verifiedToLead(lead: VerifiedLead): Lead {
     phone: lead.phone,
     email: lead.email,
     website: lead.website,
-    score,
+    score: lead.opportunityScore,
     kind,
     issues: [lead.why, lead.websiteNote, ...lead.doNot].filter(Boolean) as string[],
     source: "verified",
