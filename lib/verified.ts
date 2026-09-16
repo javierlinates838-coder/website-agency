@@ -45,6 +45,29 @@ export function canContact(lead: VerifiedLead): boolean {
   return lead.status === "safe";
 }
 
+function parkedPhoneKey(phone?: string | null): string {
+  const digits = (phone || "").replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+function parkedNameKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function findParkedMatch(
+  lead: { name: string; phone?: string | null },
+  parked: readonly VerifiedLead[] = VERIFIED_PARKED,
+): VerifiedLead | undefined {
+  const phone = parkedPhoneKey(lead.phone);
+  if (phone) {
+    const byPhone = parked.find((item) => parkedPhoneKey(item.phone) === phone);
+    if (byPhone) return byPhone;
+  }
+  const name = parkedNameKey(lead.name);
+  if (!name) return undefined;
+  return parked.find((item) => parkedNameKey(item.name) === name);
+}
+
 export function getVerifiedLead(id: string): VerifiedLead | undefined {
   return [...VERIFIED_TOP5, ...VERIFIED_PARKED].find((lead) => lead.id === id);
 }

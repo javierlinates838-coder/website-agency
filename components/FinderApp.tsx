@@ -7,6 +7,7 @@ import { compareLeads, kindLabel } from "@/lib/score";
 import { loadPipeline, loadProfile, saveProfile, toCsv, upsertLead } from "@/lib/storage";
 import { buildPitch } from "@/lib/templates";
 import type { Lead, OpportunityKind, SearchResponse, StudioProfile } from "@/lib/types";
+import { findParkedMatch, statusLabel } from "@/lib/verified";
 import { ScoreMark } from "./ScoreMark";
 
 const FILTERS: { id: "all" | OpportunityKind; label: string }[] = [
@@ -64,8 +65,16 @@ export function FinderApp() {
 
   const visible = useMemo(() => {
     const filtered = filter === "all" ? leads : leads.filter((lead) => lead.kind === filter);
-    return [...filtered].sort(compareLeads);
+    return [...filtered].sort((a, b) => {
+      const aParked = findParkedMatch(a) ? 1 : 0;
+      const bParked = findParkedMatch(b) ? 1 : 0;
+      if (aParked !== bParked) return aParked - bParked;
+      return compareLeads(a, b);
+    });
   }, [leads, filter]);
+
+  const parkedHits = useMemo(() => leads.filter((lead) => findParkedMatch(lead)), [leads]);
+  const selectedParked = selected ? findParkedMatch(selected) : undefined;
 
   async function runSearch(nextCity = city, nextIndustry = industry, nextDemo = demo) {
     setLoading(true);
@@ -109,12 +118,18 @@ export function FinderApp() {
   }
 
   function saveSelected(lead: Lead) {
+    const parked = findParkedMatch(lead);
+    if (parked) {
+      setNotice(`${lead.name} is ${statusLabel(parked.status)}. Do not save it as outreach.`);
+      return;
+    }
     upsertLead({ ...lead, status: "new" });
     setSavedIds((current) => (current.includes(lead.id) ? current : [lead.id, ...current]));
     setNotice(`${lead.name} is in your pipeline.`);
   }
 
   function copyPitch(lead: Lead) {
+    if (findParkedMatch(lead)) return;
     const text = buildPitch(lead, pitchStyle, profile);
     void navigator.clipboard.writeText(text);
     setCopied(true);
@@ -278,6 +293,12 @@ export function FinderApp() {
       {leads.length > 0 && (
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section>
+            {parkedHits.length > 0 && (
+              <p className="mb-4 rounded-2xl border border-ember/30 bg-ember/10 px-4 py-3 text-sm text-paper">
+                {parkedHits.length === 1 ? "1 result matches" : `${parkedHits.length} results match`} a HOLD/DNC
+                name and cannot be saved or pitched.
+              </p>
+            )}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-mist">
                 {visible.length} opportunities{cityLabel ? ` near ${cityLabel.split(",")[0]}` : ""}
@@ -302,6 +323,7 @@ export function FinderApp() {
             <div className="space-y-3">
               {visible.map((lead) => {
                 const active = selected?.id === lead.id;
+                const parked = findParkedMatch(lead);
                 return (
                   <button
                     key={lead.id}
@@ -325,6 +347,11 @@ export function FinderApp() {
                               Saved
                             </span>
                           )}
+                          {parked && (
+                            <span className="rounded-full bg-ember/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ember">
+                              {statusLabel(parked.status)}
+                            </span>
+                          )}
                         </div>
                         <p className="mt-1 text-sm text-mist">
                           {lead.industryLabel} · {lead.address}
@@ -342,7 +369,14 @@ export function FinderApp() {
           {selected && (
             <aside className="h-fit rounded-[2rem] border border-white/10 bg-clay p-5 lg:sticky lg:top-6">
               <ScoreMark score={selected.score} kind={selected.kind} />
-              <h2 className="mt-4 font-display text-3xl tracking-tight">{selected.name}</h2>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-3xl tracking-tight">{selected.name}</h2>
+                {selectedParked && (
+                  <span className="rounded-full bg-ember/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ember">
+                    {statusLabel(selectedParked.status)}
+                  </span>
+                )}
+              </div>
               <p className="mt-2 text-sm text-mist">
                 {selected.industryLabel} · {selected.address}
               </p>
@@ -374,10 +408,15 @@ export function FinderApp() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
                   type="button"
+                  disabled={Boolean(selectedParked)}
                   onClick={() => saveSelected(selected)}
-                  className="rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink"
+                  className="rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {savedIds.includes(selected.id) ? "Saved" : "Save to pipeline"}
+                  {selectedParked
+                    ? `${statusLabel(selectedParked.status)} — can't save`
+                    : savedIds.includes(selected.id)
+                      ? "Saved"
+                      : "Save to pipeline"}
                 </button>
                 <a
                   className="rounded-full border border-white/15 px-4 py-2 text-sm"
@@ -418,10 +457,11 @@ export function FinderApp() {
                 />
                 <button
                   type="button"
+                  disabled={Boolean(selectedParked)}
                   onClick={() => copyPitch(selected)}
-                  className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
+                  className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {copied ? "Copied" : "Copy\u00a0pitch"}
+                  {selectedParked ? "Pitch blocked" : copied ? "Copied" : "Copy\u00a0pitch"}
                 </button>
                 <p className="mt-3 text-xs text-mist">
                   {kindLabel(selected.kind)} is the angle. Keep it specific and short — nobody wants a spray of cold spam.
