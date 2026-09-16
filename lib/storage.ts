@@ -1,4 +1,6 @@
 import type { Lead, LeadStatus, StudioProfile } from "./types";
+
+export type LeadPatch = Partial<Pick<Lead, "notes" | "followUpDate" | "status" | "deepQualify" | "demoCandidate">>;
 import { findParkedMatch } from "./verified";
 
 const LEADS_KEY = "beacon-pipeline";
@@ -72,6 +74,8 @@ export function upsertLead(lead: Lead, status: LeadStatus = "new"): Lead[] {
       notes: existing.notes ?? next.notes,
       followUpDate: existing.followUpDate ?? next.followUpDate,
       savedAt: existing.savedAt || next.savedAt,
+      deepQualify: existing.deepQualify ?? next.deepQualify,
+      demoCandidate: existing.demoCandidate ?? next.demoCandidate,
     };
   } else {
     current.unshift(next);
@@ -80,10 +84,7 @@ export function upsertLead(lead: Lead, status: LeadStatus = "new"): Lead[] {
   return current;
 }
 
-export function updateLead(
-  id: string,
-  patch: Partial<Pick<Lead, "notes" | "followUpDate" | "status">>,
-): Lead[] {
+export function updateLead(id: string, patch: LeadPatch): Lead[] {
   const current = loadPipeline().map((lead) => {
     if (lead.id !== id) return lead;
     const next = { ...lead, ...patch };

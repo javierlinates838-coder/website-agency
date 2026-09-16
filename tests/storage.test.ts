@@ -89,6 +89,29 @@ describe("pipeline persistence", () => {
     expect(loaded[0].status).toBe("follow_up");
   });
 
+  it("persists Deep Qualify fields and does not wipe them on a later upsert", () => {
+    upsertLead(liveLead({ status: "new" }));
+    const result = {
+      businessName: "Cedar Street Salon",
+      niche: "Salons",
+      activeStatus: "active" as const,
+      contactability: { phone: true, email: false, contactForm: false, social: false },
+      opportunityScore: 88,
+      websiteFit: 58,
+      businessQuality: "unknown" as const,
+      confidence: "MEDIUM" as const,
+      opportunities: ["Social only"],
+      risks: ["Business Quality unknown — no reliable evidence supplied."],
+      recommendedAction: "MAYBE" as const,
+    };
+    updateLead("osm:shop", { deepQualify: result, demoCandidate: false });
+    expect(loadPipeline()[0].deepQualify?.recommendedAction).toBe("MAYBE");
+    expect(loadPipeline()[0].demoCandidate).toBe(false);
+    upsertLead(liveLead({ status: "new", notes: "do not replace" }));
+    expect(loadPipeline()[0].deepQualify?.websiteFit).toBe(58);
+    expect(loadPipeline()[0].demoCandidate).toBe(false);
+  });
+
   it("does not reset notes, follow-up, or status when the same lead is saved again", () => {
     upsertLead(liveLead({ status: "new" }));
     updateLead("osm:shop", { notes: "Keep me", followUpDate: "2026-09-22", status: "contacted" });
