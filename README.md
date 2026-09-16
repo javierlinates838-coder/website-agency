@@ -18,9 +18,12 @@ Johnny's Barber is HOLD. Oildale Barber is DNC. Call and email scripts include t
 
 - City + trade finder from OpenStreetMap
 - Opportunity scoring (no website, social-only, outdated, not mobile)
-- Pipeline on this device, CSV export
+- Pipeline on this device: New / Contacted / Follow Up / Won / Lost, with notes and a follow-up date
+- CSV export
 
 Sample finder rows are labeled **Sample**. Do not contact those as real businesses.
+
+No environment variables are required. Nominatim and Overpass are called from the Next.js server with the app’s user agent.
 
 ## Run it
 
@@ -30,4 +33,4 @@ npm test
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and go to **Desk**.
+Open [http://localhost:3000](http://localhost:3000) and go to **Desk**. Use **Finder** for the next city, then **Pipeline** for saved work.

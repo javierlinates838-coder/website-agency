@@ -115,7 +115,15 @@ export function VerifiedDesk() {
 
       <p className="mt-6 rounded-2xl border border-white/10 bg-sand px-4 py-3 text-sm text-paper">
         {BAKERSFIELD_MARKET.sources} Johnny&apos;s Barber is HOLD. Oildale Barber is DNC. Everything in the Top 5 is
-        safe to pursue — you still have to send it.
+        safe to pursue — you still have to send it.{" "}
+        <Link href="/finder" className="text-moss underline">
+          Finder
+        </Link>{" "}
+        is the next city.{" "}
+        <Link href="/pipeline" className="text-moss underline">
+          Pipeline
+        </Link>{" "}
+        is saved work.
       </p>
 
       {notice && (

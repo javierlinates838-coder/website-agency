@@ -22,7 +22,7 @@ const rules = [
 
 const week = [
   "Today: open the Bakersfield desk. Call White Lane Donuts, then Hometown Plumbing.",
-  "Same day: email Luna Electric and save every attempt as Reached.",
+  "Same day: email Luna Electric and save every attempt as Contacted.",
   "Tomorrow: Oildale Nails and Hector at Briceno — ask for the owner, follow the do-not rules.",
   "Thursday: one free homepage mock for whoever answered.",
   "Friday: only then scan a second neighborhood in the finder.",

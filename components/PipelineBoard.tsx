@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { kindLabel } from "@/lib/score";
-import { loadPipeline, removeLead, savePipeline, toCsv, updateLeadStatus } from "@/lib/storage";
+import { loadPipeline, removeLead, savePipeline, toCsv, updateLead, updateLeadStatus } from "@/lib/storage";
 import type { Lead, LeadStatus } from "@/lib/types";
 import { ScoreMark } from "./ScoreMark";
 
 const COLUMNS: { id: LeadStatus; label: string; hint: string }[] = [
   { id: "new", label: "New", hint: "Not contacted" },
-  { id: "contacted", label: "Reached", hint: "Email, DM, or call sent" },
-  { id: "meeting", label: "Talking", hint: "They replied" },
-  { id: "proposal", label: "Proposal", hint: "Quote is out" },
+  { id: "contacted", label: "Contacted", hint: "You reached out" },
+  { id: "follow_up", label: "Follow Up", hint: "Waiting on them" },
   { id: "won", label: "Won", hint: "Booked work" },
-  { id: "passed", label: "Passed", hint: "Not a fit" },
+  { id: "lost", label: "Lost", hint: "Not a fit" },
 ];
+
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function PipelineBoard() {
   const [leads, setLeads] = useState<Lead[]>(() => loadPipeline());
@@ -44,6 +47,10 @@ export function PipelineBoard() {
     setLeads(removeLead(id));
   }
 
+  function patch(id: string, fields: Partial<Pick<Lead, "notes" | "followUpDate">>) {
+    setLeads(updateLead(id, fields));
+  }
+
   function exportAll() {
     const blob = new Blob([toCsv(leads)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -64,11 +71,17 @@ export function PipelineBoard() {
       <div className="rounded-[2rem] border border-dashed border-white/15 px-6 py-16 text-center">
         <p className="font-display text-3xl">No saved businesses yet.</p>
         <p className="mx-auto mt-3 max-w-md text-mist">
-          Run a search in the finder and save the ones worth a conversation. They land here so you can work them in order.
+          Start on the verified desk, or find the next city. Save a name and it lands here so you can update status,
+          notes, and a follow-up date.
         </p>
-        <Link href="/finder" className="mt-6 inline-flex rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink">
-          Open the finder
-        </Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/desk" className="inline-flex rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink">
+            Open the desk
+          </Link>
+          <Link href="/finder" className="inline-flex rounded-full border border-white/15 px-4 py-2 text-sm">
+            Find leads
+          </Link>
+        </div>
       </div>
     );
   }
@@ -86,7 +99,7 @@ export function PipelineBoard() {
           </button>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {COLUMNS.map((column) => (
           <section
             key={column.id}
@@ -100,45 +113,72 @@ export function PipelineBoard() {
             </div>
             <p className="mb-3 px-1 text-xs text-mist">{column.hint}</p>
             <div className="space-y-2">
-              {grouped[column.id].map((lead) => (
-                <article
-                  key={lead.id}
-                  draggable
-                  onDragStart={() => setDragging(lead.id)}
-                  className="cursor-grab rounded-2xl border border-white/10 bg-ink p-3 active:cursor-grabbing"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-sm text-paper">{lead.name}</h3>
-                      <p className="text-xs text-mist">
-                        {lead.city} · {kindLabel(lead.kind)}
-                        {lead.source === "verified" ? " · Verified" : ""}
-                      </p>
+              {grouped[column.id].map((lead) => {
+                const overdue = Boolean(lead.followUpDate && lead.followUpDate < todayStamp() && lead.status === "follow_up");
+                return (
+                  <article
+                    key={lead.id}
+                    draggable
+                    onDragStart={() => setDragging(lead.id)}
+                    className="cursor-grab rounded-2xl border border-white/10 bg-ink p-3 active:cursor-grabbing"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm text-paper">{lead.name}</h3>
+                        <p className="text-xs text-mist">
+                          {lead.city} · {kindLabel(lead.kind)}
+                          {lead.source === "verified" ? " · Verified" : lead.source === "demo" ? " · Sample" : " · Live"}
+                        </p>
+                      </div>
+                      <ScoreMark score={lead.score} kind={lead.kind} compact />
                     </div>
-                    <ScoreMark score={lead.score} kind={lead.kind} compact />
-                  </div>
-                  {lead.phone && <p className="mt-2 text-xs text-mist">{lead.phone}</p>}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {COLUMNS.filter((item) => item.id !== (lead.status || "new")).slice(0, 3).map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-mist hover:text-paper"
-                        onClick={() => move(lead.id, item.id)}
+                    {lead.phone && <p className="mt-2 text-xs text-mist">{lead.phone}</p>}
+                    <label className="mt-3 block text-[11px] uppercase tracking-wider text-mist">
+                      Status
+                      <select
+                        className="mt-1 py-1.5 text-xs"
+                        value={lead.status || "new"}
+                        onChange={(event) => move(lead.id, event.target.value as LeadStatus)}
+                        onPointerDown={(event) => event.stopPropagation()}
                       >
-                        {item.label}
-                      </button>
-                    ))}
+                        {COLUMNS.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="mt-2 block text-[11px] uppercase tracking-wider text-mist">
+                      Follow-up
+                      <input
+                        type="date"
+                        className={`mt-1 py-1.5 text-xs ${overdue ? "border-ember/50" : ""}`}
+                        value={lead.followUpDate || ""}
+                        onChange={(event) => patch(lead.id, { followUpDate: event.target.value || undefined })}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      />
+                    </label>
+                    {overdue && <p className="mt-1 text-[11px] text-ember">Follow-up is due</p>}
+                    <label className="mt-2 block text-[11px] uppercase tracking-wider text-mist">
+                      Notes
+                      <textarea
+                        className="mt-1 min-h-16 py-1.5 text-xs leading-5"
+                        value={lead.notes || ""}
+                        onChange={(event) => patch(lead.id, { notes: event.target.value })}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        placeholder="What you said, what they said"
+                      />
+                    </label>
                     <button
                       type="button"
-                      className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-ember"
+                      className="mt-2 rounded-full border border-white/10 px-2 py-1 text-[11px] text-ember"
                       onClick={() => clear(lead.id)}
                     >
                       Remove
                     </button>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))}

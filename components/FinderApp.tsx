@@ -4,10 +4,19 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { INDUSTRIES } from "@/lib/industries";
 import { compareLeads, kindLabel } from "@/lib/score";
-import { loadPipeline, loadProfile, saveProfile, toCsv, upsertLead } from "@/lib/storage";
+import { loadPipeline, loadProfile, saveProfile, toCsv, updateLead, upsertLead } from "@/lib/storage";
 import { buildPitch } from "@/lib/templates";
 import type { Lead, OpportunityKind, SearchResponse, StudioProfile } from "@/lib/types";
-import { findParkedMatch, statusLabel } from "@/lib/verified";
+import {
+  annotateFinderLead,
+  contactMethodLabel,
+  findParkedMatch,
+  pipelineIdFor,
+  statusLabel,
+  verifiedToLead,
+  websiteStatusLabel,
+  type FinderSourceLabel,
+} from "@/lib/verified";
 import { ScoreMark } from "./ScoreMark";
 
 const FILTERS: { id: "all" | OpportunityKind; label: string }[] = [
@@ -54,13 +63,14 @@ export function FinderApp() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<string[]>(() => loadPipeline().map((lead) => lead.id));
+  const [pipeline, setPipeline] = useState<Lead[]>(() => loadPipeline());
   const [pitchStyle, setPitchStyle] = useState<"email" | "sms" | "dm" | "voicemail">("email");
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [profile, setProfile] = useState<StudioProfile>(() => loadProfile());
   const [showProfile, setShowProfile] = useState(false);
 
+  const savedIds = useMemo(() => pipeline.map((lead) => lead.id), [pipeline]);
   const selected = leads.find((lead) => lead.id === selectedId) || leads[0] || null;
 
   const visible = useMemo(() => {
@@ -74,7 +84,10 @@ export function FinderApp() {
   }, [leads, filter]);
 
   const parkedHits = useMemo(() => leads.filter((lead) => findParkedMatch(lead)), [leads]);
-  const selectedParked = selected ? findParkedMatch(selected) : undefined;
+  const selectedMeta = selected ? annotateFinderLead(selected) : null;
+  const selectedParked = selectedMeta?.parked;
+  const selectedSaved = selected ? savedIds.includes(pipelineIdFor(selected)) : false;
+  const selectedSavedRecord = selected ? pipeline.find((lead) => lead.id === pipelineIdFor(selected)) : undefined;
 
   async function runSearch(nextCity = city, nextIndustry = industry, nextDemo = demo) {
     setLoading(true);
@@ -123,9 +136,10 @@ export function FinderApp() {
       setNotice(`${lead.name} is ${statusLabel(parked.status)}. Do not save it as outreach.`);
       return;
     }
-    upsertLead({ ...lead, status: "new" });
-    setSavedIds((current) => (current.includes(lead.id) ? current : [lead.id, ...current]));
-    setNotice(`${lead.name} is in your pipeline.`);
+    const meta = annotateFinderLead(lead);
+    const toSave = meta.verified ? verifiedToLead(meta.verified) : { ...lead, status: "new" as const };
+    setPipeline(upsertLead(toSave));
+    setNotice(`${toSave.name} is in your pipeline.`);
   }
 
   function copyPitch(lead: Lead) {
@@ -170,11 +184,11 @@ export function FinderApp() {
       </div>
 
       <p className="mt-6 rounded-2xl border border-moss/25 bg-moss/10 px-4 py-3 text-sm text-paper">
-        Bakersfield is already cleared. Use{" "}
-        <Link href="/desk" className="text-moss underline">
-          the verified desk
-        </Link>{" "}
-        for the Top 5. This finder is for the next city or trade.
+        Desk is the verified Bakersfield Top 5. This finder is the next city or trade. Save a name, then work it in{" "}
+        <Link href="/pipeline" className="text-moss underline">
+          Pipeline
+        </Link>
+        .
       </p>
 
       {showProfile && (
@@ -281,7 +295,7 @@ export function FinderApp() {
         <div className="mt-10 rounded-[2rem] border border-dashed border-white/15 px-6 py-16 text-center">
           <p className="font-display text-3xl">Pick a city and a trade.</p>
           <p className="mx-auto mt-3 max-w-lg text-mist">
-            Beacon will look up local businesses, score who still needs a website, and draft a message you can send today.
+            Find scores the list. Save the ones worth a conversation. HOLD/DNC matches stay blocked.
           </p>
         </div>
       )}
@@ -323,7 +337,8 @@ export function FinderApp() {
             <div className="space-y-3">
               {visible.map((lead) => {
                 const active = selected?.id === lead.id;
-                const parked = findParkedMatch(lead);
+                const meta = annotateFinderLead(lead);
+                const saved = savedIds.includes(pipelineIdFor(lead));
                 return (
                   <button
                     key={lead.id}
@@ -337,27 +352,24 @@ export function FinderApp() {
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg text-paper">{lead.name}</h2>
-                          {lead.source === "demo" && (
-                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-mist">
-                              Sample
-                            </span>
-                          )}
-                          {savedIds.includes(lead.id) && (
+                          <SourceBadge label={meta.sourceLabel} />
+                          {saved && (
                             <span className="rounded-full bg-moss/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-moss">
                               Saved
-                            </span>
-                          )}
-                          {parked && (
-                            <span className="rounded-full bg-ember/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ember">
-                              {statusLabel(parked.status)}
                             </span>
                           )}
                         </div>
                         <p className="mt-1 text-sm text-mist">
                           {lead.industryLabel} · {lead.address}
                         </p>
+                        <p className="mt-1 text-sm text-mist">
+                          {lead.phone || "No phone"}
+                          {meta.verified
+                            ? ` · ${meta.confidence || "—"} · ${websiteStatusLabel(meta.websiteStatus)} · ${contactMethodLabel(meta.contactMethod)}`
+                            : ""}
+                        </p>
                       </div>
-                      <ScoreMark score={lead.score} kind={lead.kind} />
+                      <ScoreMark score={meta.score} kind={lead.kind} />
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm text-paper/80">{lead.issues[0]}</p>
                   </button>
@@ -366,14 +378,15 @@ export function FinderApp() {
             </div>
           </section>
 
-          {selected && (
+          {selected && selectedMeta && (
             <aside className="h-fit rounded-[2rem] border border-white/10 bg-clay p-5 lg:sticky lg:top-6">
-              <ScoreMark score={selected.score} kind={selected.kind} />
+              <ScoreMark score={selectedMeta.score} kind={selected.kind} />
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <h2 className="font-display text-3xl tracking-tight">{selected.name}</h2>
-                {selectedParked && (
-                  <span className="rounded-full bg-ember/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ember">
-                    {statusLabel(selectedParked.status)}
+                <SourceBadge label={selectedMeta.sourceLabel} />
+                {selectedSaved && (
+                  <span className="rounded-full bg-moss/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-moss">
+                    Saved
                   </span>
                 )}
               </div>
@@ -382,8 +395,35 @@ export function FinderApp() {
               </p>
               <dl className="mt-5 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
+                  <dt className="text-mist">Score</dt>
+                  <dd>
+                    {selectedMeta.score}
+                    {selectedMeta.verified ? " · verified" : selected.source === "demo" ? " · sample" : " · live"}
+                  </dd>
+                </div>
+                {selectedMeta.confidence ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-mist">Confidence</dt>
+                    <dd>{selectedMeta.confidence}</dd>
+                  </div>
+                ) : null}
+                <div className="flex justify-between gap-4">
+                  <dt className="text-mist">Opportunity</dt>
+                  <dd>
+                    {selectedMeta.websiteStatus
+                      ? websiteStatusLabel(selectedMeta.websiteStatus)
+                      : kindLabel(selected.kind)}
+                  </dd>
+                </div>
+                {selectedMeta.contactMethod ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-mist">Contact</dt>
+                    <dd>{contactMethodLabel(selectedMeta.contactMethod)}</dd>
+                  </div>
+                ) : null}
+                <div className="flex justify-between gap-4">
                   <dt className="text-mist">Phone</dt>
-                  <dd>{selected.phone || "Not listed"}</dd>
+                  <dd>{selected.phone || selectedMeta.verified?.phone || "Not listed"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-mist">Website</dt>
@@ -414,10 +454,18 @@ export function FinderApp() {
                 >
                   {selectedParked
                     ? `${statusLabel(selectedParked.status)} — can't save`
-                    : savedIds.includes(selected.id)
+                    : selectedSaved
                       ? "Saved"
                       : "Save to pipeline"}
                 </button>
+                <Link className="rounded-full border border-white/15 px-4 py-2 text-sm" href="/pipeline">
+                  Open pipeline
+                </Link>
+                {selected.phone && !selectedParked && (
+                  <a className="rounded-full border border-white/15 px-4 py-2 text-sm" href={`tel:${selected.phone}`}>
+                    Call
+                  </a>
+                )}
                 <a
                   className="rounded-full border border-white/15 px-4 py-2 text-sm"
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selected.name} ${selected.address}`)}`}
@@ -426,15 +474,18 @@ export function FinderApp() {
                 >
                   Maps
                 </a>
-                {selected.phone && (
-                  <a className="rounded-full border border-white/15 px-4 py-2 text-sm" href={`tel:${selected.phone}`}>
-                    Call
-                  </a>
-                )}
-                <Link className="rounded-full border border-white/15 px-4 py-2 text-sm" href="/pipeline">
-                  Open pipeline
-                </Link>
               </div>
+
+              {selectedSaved && selectedSavedRecord && !selectedParked && (
+                <label className="mt-5 block text-sm text-mist">
+                  Notes
+                  <textarea
+                    className="mt-1 min-h-24 text-sm"
+                    value={selectedSavedRecord.notes || ""}
+                    onChange={(event) => setPipeline(updateLead(selectedSavedRecord.id, { notes: event.target.value }))}
+                  />
+                </label>
+              )}
 
               <div className="mt-8">
                 <div className="flex flex-wrap gap-2">
@@ -464,7 +515,8 @@ export function FinderApp() {
                   {selectedParked ? "Pitch blocked" : copied ? "Copied" : "Copy\u00a0pitch"}
                 </button>
                 <p className="mt-3 text-xs text-mist">
-                  {kindLabel(selected.kind)} is the angle. Keep it specific and short — nobody wants a spray of cold spam.
+                  {kindLabel(selected.kind)} is the angle. Copy the pitch and send it yourself — Beacon does not email or
+                  call for you.
                 </p>
               </div>
             </aside>
@@ -472,5 +524,27 @@ export function FinderApp() {
         </div>
       )}
     </div>
+  );
+}
+
+function SourceBadge({ label }: { label: FinderSourceLabel }) {
+  if (label === "HOLD" || label === "DNC") {
+    return (
+      <span className="rounded-full bg-ember/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ember">
+        {label}
+      </span>
+    );
+  }
+  if (label === "Verified") {
+    return (
+      <span className="rounded-full bg-moss/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-moss">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-mist">
+      {label}
+    </span>
   );
 }
