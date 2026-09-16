@@ -9,13 +9,11 @@ export type OpportunityKind =
   | "refresh"
   | "healthy";
 
-export type LeadStatus =
-  | "new"
-  | "contacted"
-  | "meeting"
-  | "proposal"
-  | "won"
-  | "passed";
+export type LeadStatus = "new" | "contacted" | "follow_up" | "won" | "lost";
+
+export type Confidence = "HIGH" | "MEDIUM" | "LOW";
+export type WebsiteStatus = "NONE" | "WEAK" | "OUTDATED" | "ADEQUATE" | "UNCLEAR" | "CLOSED";
+export type ContactMethod = "phone" | "phone_or_email" | "none";
 
 export type Lead = {
   id: string;
@@ -37,6 +35,10 @@ export type Lead = {
   notes?: string;
   status?: LeadStatus;
   savedAt?: string;
+  followUpDate?: string;
+  confidence?: Confidence;
+  websiteStatus?: WebsiteStatus;
+  contactMethod?: ContactMethod;
 };
 
 export type StudioProfile = {

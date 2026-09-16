@@ -1,12 +1,10 @@
-import type { Lead } from "./types";
+import type { Confidence, ContactMethod, Lead, WebsiteStatus } from "./types";
 import bakersfield from "../data/verified/bakersfield.json";
 
 export type ContactStatus = "safe" | "hold" | "dnc";
 export type Intent = "high" | "medium";
 export type Play = "greenfield" | "redesign";
-export type Confidence = "HIGH" | "MEDIUM" | "LOW";
-export type WebsiteStatus = "NONE" | "WEAK" | "OUTDATED" | "ADEQUATE" | "UNCLEAR" | "CLOSED";
-export type ContactMethod = "phone" | "phone_or_email" | "none";
+export type { Confidence, ContactMethod, WebsiteStatus };
 
 export type VerifiedLead = {
   id: string;
@@ -41,31 +39,99 @@ export const VERIFIED_TOP5 = bakersfield.top5 as VerifiedLead[];
 export const VERIFIED_PARKED = bakersfield.parked as VerifiedLead[];
 export const VERIFIED_BENCH = bakersfield.bench;
 
+export type FinderSourceLabel = "Live" | "Sample" | "Verified" | "HOLD" | "DNC";
+
+export type FinderAnnotation = {
+  parked?: VerifiedLead;
+  verified?: VerifiedLead;
+  score: number;
+  sourceLabel: FinderSourceLabel;
+  confidence?: Confidence;
+  websiteStatus?: WebsiteStatus;
+  contactMethod?: ContactMethod;
+};
+
 export function canContact(lead: VerifiedLead): boolean {
   return lead.status === "safe";
 }
 
-function parkedPhoneKey(phone?: string | null): string {
+export function phoneKey(phone?: string | null): string {
   const digits = (phone || "").replace(/\D/g, "");
   return digits.length >= 10 ? digits.slice(-10) : digits;
 }
 
-function parkedNameKey(name: string): string {
+export function nameKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function matchByPhoneOrName(
+  lead: { name: string; phone?: string | null },
+  records: readonly VerifiedLead[],
+): VerifiedLead | undefined {
+  const phone = phoneKey(lead.phone);
+  if (phone) {
+    const byPhone = records.find((item) => phoneKey(item.phone) === phone);
+    if (byPhone) return byPhone;
+  }
+  const name = nameKey(lead.name);
+  if (!name) return undefined;
+  return records.find((item) => nameKey(item.name) === name);
 }
 
 export function findParkedMatch(
   lead: { name: string; phone?: string | null },
   parked: readonly VerifiedLead[] = VERIFIED_PARKED,
 ): VerifiedLead | undefined {
-  const phone = parkedPhoneKey(lead.phone);
-  if (phone) {
-    const byPhone = parked.find((item) => parkedPhoneKey(item.phone) === phone);
-    if (byPhone) return byPhone;
+  return matchByPhoneOrName(lead, parked);
+}
+
+export function findVerifiedMatch(
+  lead: { id?: string; name: string; phone?: string | null },
+  safe: readonly VerifiedLead[] = VERIFIED_TOP5,
+): VerifiedLead | undefined {
+  if (lead.id?.startsWith("verified:")) {
+    const byId = safe.find((item) => item.id === lead.id!.slice("verified:".length));
+    if (byId) return byId;
   }
-  const name = parkedNameKey(lead.name);
-  if (!name) return undefined;
-  return parked.find((item) => parkedNameKey(item.name) === name);
+  return matchByPhoneOrName(lead, safe);
+}
+
+export function annotateFinderLead(lead: Lead): FinderAnnotation {
+  const parked = findParkedMatch(lead);
+  if (parked) {
+    return {
+      parked,
+      score: lead.score,
+      sourceLabel: statusLabel(parked.status),
+      confidence: parked.confidence,
+      websiteStatus: parked.websiteStatus,
+      contactMethod: parked.contactMethod,
+    };
+  }
+
+  const verified = findVerifiedMatch(lead);
+  if (verified) {
+    return {
+      verified,
+      score: typeof verified.opportunityScore === "number" ? verified.opportunityScore : lead.score,
+      sourceLabel: "Verified",
+      confidence: verified.confidence,
+      websiteStatus: verified.websiteStatus,
+      contactMethod: verified.contactMethod,
+    };
+  }
+
+  return {
+    score: lead.score,
+    sourceLabel: lead.source === "demo" ? "Sample" : lead.source === "verified" ? "Verified" : "Live",
+    contactMethod: lead.contactMethod,
+  };
+}
+
+export function pipelineIdFor(lead: Lead): string {
+  if (findParkedMatch(lead)) return lead.id;
+  const verified = findVerifiedMatch(lead);
+  return verified ? `verified:${verified.id}` : lead.id;
 }
 
 export function getVerifiedLead(id: string): VerifiedLead | undefined {
@@ -80,6 +146,16 @@ export function contactMethodLabel(method?: ContactMethod): string {
   if (method === "phone") return "Phone";
   if (method === "phone_or_email") return "Phone or email";
   if (method === "none") return "None";
+  return "—";
+}
+
+export function websiteStatusLabel(status?: WebsiteStatus): string {
+  if (status === "NONE") return "No website";
+  if (status === "WEAK") return "Weak site";
+  if (status === "OUTDATED") return "Outdated";
+  if (status === "ADEQUATE") return "Adequate";
+  if (status === "UNCLEAR") return "Unclear";
+  if (status === "CLOSED") return "Closed";
   return "—";
 }
 
@@ -113,5 +189,8 @@ export function verifiedToLead(lead: VerifiedLead): Lead {
     source: "verified",
     analyzed: true,
     notes: lead.doNot.join(" "),
+    confidence: lead.confidence,
+    websiteStatus: lead.websiteStatus,
+    contactMethod: lead.contactMethod,
   };
 }

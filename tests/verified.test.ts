@@ -1,13 +1,17 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { Lead } from "../lib/types";
 import {
   BAKERSFIELD_MARKET,
   VERIFIED_BENCH,
   VERIFIED_PARKED,
   VERIFIED_TOP5,
+  annotateFinderLead,
   canContact,
   findParkedMatch,
+  findVerifiedMatch,
+  pipelineIdFor,
   verifiedToLead,
   type ContactMethod,
   type Confidence,
@@ -173,6 +177,9 @@ describe("Bakersfield verified desk", () => {
       const converted = verifiedToLead(lead);
       expect(converted.score).toBe(lead.opportunityScore);
       expect(converted.source).toBe("verified");
+      expect(converted.confidence).toBe(lead.confidence);
+      expect(converted.websiteStatus).toBe(lead.websiteStatus);
+      expect(converted.contactMethod).toBe(lead.contactMethod);
       if (lead.intent === "high") expect(converted.score).not.toBe(94);
       if (lead.intent === "medium") expect(converted.score).not.toBe(82);
     }
@@ -208,6 +215,72 @@ describe("findParkedMatch", () => {
     const barber = findParkedMatch({ name: "Oildale Barber" });
     expect(johnny && canContact(johnny)).toBe(false);
     expect(barber && canContact(barber)).toBe(false);
+  });
+});
+
+describe("findVerifiedMatch", () => {
+  it("matches SAFE Top 5 by normalized phone and name", () => {
+    expect(findVerifiedMatch({ name: "Other", phone: "(661) 836-2906" })?.id).toBe("white-lane-donuts");
+    expect(findVerifiedMatch({ name: "hometown plumbing" })?.id).toBe("hometown-plumbing");
+    expect(findVerifiedMatch({ id: "verified:luna-electric", name: "Other" })?.id).toBe("luna-electric");
+  });
+
+  it("does not treat HOLD/DNC names as verified matches", () => {
+    expect(findVerifiedMatch({ name: "Johnny's Barber" })).toBeUndefined();
+    expect(findVerifiedMatch({ name: "Oildale Barber" })).toBeUndefined();
+    expect(findParkedMatch({ name: "Johnny's Barber" })?.status).toBe("hold");
+  });
+});
+
+describe("annotateFinderLead", () => {
+  function osmLead(over: Partial<Lead> = {}): Lead {
+    return {
+      id: "osm:1",
+      name: "Maple Court Dental",
+      industry: "dentists",
+      industryLabel: "Dentists",
+      city: "Austin, TX",
+      address: "1 Maple",
+      phone: "512-555-0100",
+      score: 94,
+      kind: "no_website",
+      issues: ["No website listed"],
+      source: "live",
+      analyzed: true,
+      ...over,
+    };
+  }
+
+  it("does not invent confidence for OSM-only leads", () => {
+    const meta = annotateFinderLead(osmLead());
+    expect(meta.sourceLabel).toBe("Live");
+    expect(meta.confidence).toBeUndefined();
+    expect(meta.verified).toBeUndefined();
+    expect(meta.parked).toBeUndefined();
+    expect(meta.score).toBe(94);
+  });
+
+  it("surfaces verified score, confidence, website status, and contact method on SAFE matches", () => {
+    const meta = annotateFinderLead(osmLead({ name: "White Lane Donuts", phone: "661-836-2906" }));
+    expect(meta.sourceLabel).toBe("Verified");
+    expect(meta.score).toBe(82);
+    expect(meta.confidence).toBe("HIGH");
+    expect(meta.websiteStatus).toBe("NONE");
+    expect(meta.contactMethod).toBe("phone");
+    expect(pipelineIdFor(osmLead({ name: "White Lane Donuts", phone: "661-836-2906" }))).toBe(
+      "verified:white-lane-donuts",
+    );
+  });
+
+  it("keeps HOLD/DNC parked and does not promote them to verified", () => {
+    const hold = annotateFinderLead(osmLead({ name: "Johnny's Barber", phone: undefined, score: 88 }));
+    expect(hold.sourceLabel).toBe("HOLD");
+    expect(hold.parked?.status).toBe("hold");
+    expect(hold.verified).toBeUndefined();
+    expect(hold.confidence).toBe("LOW");
+    const dnc = annotateFinderLead(osmLead({ name: "Oildale Barber" }));
+    expect(dnc.sourceLabel).toBe("DNC");
+    expect(dnc.parked?.status).toBe("dnc");
   });
 });
 

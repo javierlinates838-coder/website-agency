@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/desk", label: "Desk" },
@@ -7,7 +10,18 @@ const links = [
   { href: "/playbook", label: "Playbook" },
 ];
 
+function headerAction(pathname: string): { href: string; label: string } {
+  if (pathname.startsWith("/pipeline")) return { href: "/finder", label: "Find leads" };
+  if (pathname.startsWith("/finder") || pathname.startsWith("/desk")) {
+    return { href: "/pipeline", label: "Open pipeline" };
+  }
+  return { href: "/desk", label: "Open desk" };
+}
+
 export function SiteHeader() {
+  const pathname = usePathname();
+  const action = headerAction(pathname);
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-ink/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-5">
@@ -21,17 +35,30 @@ export function SiteHeader() {
           <span className="font-display text-xl tracking-tight">Beacon</span>
         </Link>
         <nav className="flex items-center gap-4 text-sm text-mist sm:gap-7">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className={link.href === "/playbook" ? "hidden hover:text-paper sm:inline" : "hover:text-paper"}>
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => {
+            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={
+                  link.href === "/playbook"
+                    ? `${active ? "text-paper" : ""} hidden hover:text-paper sm:inline`
+                    : active
+                      ? "text-paper"
+                      : "hover:text-paper"
+                }
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
         <Link
-          href="/desk"
+          href={action.href}
           className="hidden rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-moss sm:inline-flex"
         >
-          Open desk
+          {action.label}
         </Link>
       </div>
     </header>
@@ -43,7 +70,7 @@ export function SiteFooter() {
     <footer className="border-t border-white/5">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-mist sm:flex-row sm:items-center sm:justify-between">
         <p>Beacon is a local-client radar for web studios.</p>
-        <p>Verified desk first. Map scans are a backup. Sample leads are labeled.</p>
+        <p>Desk first. Finder next. Pipeline is saved work. Sample leads are labeled.</p>
       </div>
     </footer>
   );
