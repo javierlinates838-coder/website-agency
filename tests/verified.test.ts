@@ -11,6 +11,7 @@ import {
   canContact,
   findParkedMatch,
   findVerifiedMatch,
+  parkedLast,
   pipelineIdFor,
   verifiedToLead,
   type ContactMethod,
@@ -229,6 +230,14 @@ describe("findVerifiedMatch", () => {
     expect(findVerifiedMatch({ name: "Johnny's Barber" })).toBeUndefined();
     expect(findVerifiedMatch({ name: "Oildale Barber" })).toBeUndefined();
     expect(findParkedMatch({ name: "Johnny's Barber" })?.status).toBe("hold");
+  });
+});
+
+describe("parkedLast", () => {
+  it("keeps HOLD/DNC names after contactable results", () => {
+    expect(parkedLast({ name: "Johnny's Barber" }, { name: "White Lane Donuts" })).toBeGreaterThan(0);
+    expect(parkedLast({ name: "White Lane Donuts" }, { name: "Oildale Barber" })).toBeLessThan(0);
+    expect(parkedLast({ name: "Maple Court Dental" }, { name: "Harbor Table" })).toBe(0);
   });
 });
 

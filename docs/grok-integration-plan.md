@@ -55,7 +55,7 @@ Tech stack: Next.js 15 (App Router), React 19, TypeScript, Tailwind 3, Vitest. N
 
 ### Finder / pipeline `Lead` (`lib/types.ts`)
 
-`id`, `name`, `industry`, `industryLabel`, `city`, `address`, `lat?`, `lon?`, `phone?`, `email?`, `website?`, `score` (number), `kind` (`OpportunityKind`), `issues[]`, `source` (`live` \| `demo` \| `verified`), `analyzed`, `notes?`, `status?` (`new` \| `contacted` \| `meeting` \| `proposal` \| `won` \| `passed`), `savedAt?`.
+`id`, `name`, `industry`, `industryLabel`, `city`, `address`, `lat?`, `lon?`, `phone?`, `email?`, `website?`, `score` (number), `kind` (`OpportunityKind`), `issues[]`, `source` (`live` \| `demo` \| `verified`), `analyzed`, `notes?`, `status?` (`new` \| `contacted` \| `follow_up` \| `won` \| `lost`), `savedAt?`, `followUpDate?`, `confidence?`, `websiteStatus?`, `contactMethod?`. Old stored values `meeting` / `proposal` migrate to `follow_up`; `passed` migrates to `lost`.
 
 `OpportunityKind`: `no_website` \| `social_only` \| `parked` \| `outdated` \| `not_mobile` \| `insecure` \| `thin` \| `refresh` \| `healthy`.
 
