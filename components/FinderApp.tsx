@@ -31,12 +31,12 @@ const FILTERS: { id: "all" | OpportunityKind; label: string }[] = [
 ];
 
 const SUGGESTIONS = [
+  { city: "Bakersfield, CA", industry: "painters" },
+  { city: "Bakersfield, CA", industry: "roofers" },
   { city: "Bakersfield, CA", industry: "plumbers" },
-  { city: "Bakersfield, CA", industry: "health" },
-  { city: "Austin, TX", industry: "dentists" },
-  { city: "Miami, FL", industry: "salons" },
-  { city: "Phoenix, AZ", industry: "plumbers" },
-  { city: "Dallas, TX", industry: "auto" },
+  { city: "Austin, TX", industry: "electricians" },
+  { city: "Phoenix, AZ", industry: "landscapers" },
+  { city: "Dallas, TX", industry: "hvac" },
 ];
 
 async function analyzeLead(lead: Lead): Promise<Lead> {
@@ -55,7 +55,7 @@ async function analyzeLead(lead: Lead): Promise<Lead> {
 
 export function FinderApp() {
   const [city, setCity] = useState("Bakersfield, CA");
-  const [industry, setIndustry] = useState("plumbers");
+  const [industry, setIndustry] = useState("painters");
   const [radiusKm, setRadiusKm] = useState(8);
   const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(false);
