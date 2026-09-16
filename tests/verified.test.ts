@@ -7,6 +7,7 @@ import {
   VERIFIED_PARKED,
   VERIFIED_TOP5,
   canContact,
+  findParkedMatch,
   verifiedToLead,
   type ContactMethod,
   type Confidence,
@@ -179,6 +180,34 @@ describe("Bakersfield verified desk", () => {
     const plumbing = verifiedToLead(byId("hometown-plumbing"));
     expect(plumbing.email).toBe("hometownplumbing@att.net");
     expect(plumbing.score).toBe(68);
+  });
+});
+
+describe("findParkedMatch", () => {
+  it("matches parked records by normalized phone", () => {
+    const parked = [{ ...byId("oildale-barber"), phone: "(661) 399-9090" }];
+    expect(findParkedMatch({ name: "Other Shop", phone: "661-399-9090" }, parked)?.id).toBe("oildale-barber");
+    expect(findParkedMatch({ name: "Other Shop", phone: "1 (661) 399.9090" }, parked)?.id).toBe("oildale-barber");
+    expect(findParkedMatch({ name: "Other Shop", phone: "(661) 555-0100" }, parked)).toBeUndefined();
+  });
+
+  it("matches parked records by normalized name", () => {
+    expect(findParkedMatch({ name: "Johnny's Barber" })?.status).toBe("hold");
+    expect(findParkedMatch({ name: "johnnys barber" })?.id).toBe("johnnys-barber");
+    expect(findParkedMatch({ name: "OILDALE BARBER" })?.status).toBe("dnc");
+  });
+
+  it("does not treat SAFE Top 5 as parked", () => {
+    for (const lead of VERIFIED_TOP5) {
+      expect(findParkedMatch({ name: lead.name, phone: lead.phone })).toBeUndefined();
+    }
+  });
+
+  it("keeps canContact false for parked matches", () => {
+    const johnny = findParkedMatch({ name: "Johnny's Barber" });
+    const barber = findParkedMatch({ name: "Oildale Barber" });
+    expect(johnny && canContact(johnny)).toBe(false);
+    expect(barber && canContact(barber)).toBe(false);
   });
 });
 
