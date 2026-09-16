@@ -2,6 +2,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  BAKERSFIELD_MARKET,
+  VERIFIED_BENCH,
   VERIFIED_PARKED,
   VERIFIED_TOP5,
   canContact,
@@ -81,6 +83,24 @@ function byId(id: string): VerifiedLead {
 }
 
 describe("Bakersfield verified desk", () => {
+  it("loads market, Top 5, parked, and bench from bakersfield.json", () => {
+    const data = JSON.parse(
+      readFileSync(join(process.cwd(), "data/verified/bakersfield.json"), "utf8"),
+    ) as {
+      market: typeof BAKERSFIELD_MARKET;
+      top5: VerifiedLead[];
+      parked: VerifiedLead[];
+      bench: string[];
+    };
+    const src = readFileSync(join(process.cwd(), "lib/verified.ts"), "utf8");
+    expect(src).toMatch(/data\/verified\/bakersfield\.json/);
+    expect(src).not.toMatch(/white-lane-donuts/);
+    expect(BAKERSFIELD_MARKET).toEqual(data.market);
+    expect(VERIFIED_TOP5).toEqual(data.top5);
+    expect(VERIFIED_PARKED).toEqual(data.parked);
+    expect(VERIFIED_BENCH).toEqual(data.bench);
+  });
+
   it("keeps five safe leads and two parked names", () => {
     expect(VERIFIED_TOP5).toHaveLength(5);
     expect(VERIFIED_TOP5.every(canContact)).toBe(true);
@@ -163,6 +183,15 @@ describe("Bakersfield verified desk", () => {
 });
 
 describe("HOLD / DNC cannot be saved", () => {
+  it("treats only safe as contactable and throws on HOLD/DNC conversion", () => {
+    const safe = VERIFIED_TOP5[0];
+    expect(canContact(safe)).toBe(true);
+    expect(canContact({ ...safe, status: "hold" })).toBe(false);
+    expect(canContact({ ...safe, status: "dnc" })).toBe(false);
+    expect(() => verifiedToLead({ ...safe, status: "hold" })).toThrow(/HOLD/i);
+    expect(() => verifiedToLead({ ...safe, status: "dnc" })).toThrow(/DNC/i);
+  });
+
   it("parks Johnny's Barber as HOLD LOW and blocks save/scripts", () => {
     const johnny = byId("johnnys-barber");
     expect(johnny.status).toBe("hold");

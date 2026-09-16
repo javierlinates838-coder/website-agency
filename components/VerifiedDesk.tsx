@@ -11,8 +11,10 @@ import {
   VERIFIED_TOP5,
   canContact,
   contactMethodLabel,
+  statusLabel,
   telHref,
   verifiedToLead,
+  type ContactStatus,
   type VerifiedLead,
 } from "@/lib/verified";
 import {
@@ -145,9 +147,12 @@ export function VerifiedDesk() {
                       {lead.trade} · {lead.address}
                     </p>
                   </div>
-                  <span className="rounded-full bg-moss/15 px-3 py-1 text-[11px] uppercase tracking-wider text-moss">
-                    {lead.websiteStatus || (lead.play === "redesign" ? "Redesign" : "No website")}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge status={lead.status} />
+                    <span className="text-[11px] uppercase tracking-wider text-mist">
+                      {lead.websiteStatus || (lead.play === "redesign" ? "Redesign" : "No website")}
+                    </span>
+                  </div>
                 </div>
                 {saved && <p className="mt-2 text-xs uppercase tracking-wider text-moss">In pipeline</p>}
               </button>
@@ -156,9 +161,12 @@ export function VerifiedDesk() {
         </section>
 
         <aside className="h-fit rounded-[2rem] border border-white/10 bg-clay p-5 lg:sticky lg:top-24">
-          <p className="text-xs uppercase tracking-[0.16em] text-moss">
-            #{selected.rank} · {selected.opportunityScore} · {selected.confidence} · {selected.websiteStatus}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={selected.status} />
+            <p className="text-xs uppercase tracking-[0.16em] text-moss">
+              #{selected.rank} · {selected.opportunityScore} · {selected.confidence} · {selected.websiteStatus}
+            </p>
+          </div>
           <h2 className="mt-2 font-display text-3xl tracking-tight">{selected.name}</h2>
           <p className="mt-2 text-sm text-mist">{selected.why}</p>
 
@@ -185,13 +193,19 @@ export function VerifiedDesk() {
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => saveLead(selected)}
-              className="rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink"
-            >
-              {savedIds.includes(`verified:${selected.id}`) ? "Saved" : "Save to pipeline"}
-            </button>
+            {canContact(selected) ? (
+              <button
+                type="button"
+                onClick={() => saveLead(selected)}
+                className="rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink"
+              >
+                {savedIds.includes(`verified:${selected.id}`) ? "Saved" : "Save to pipeline"}
+              </button>
+            ) : (
+              <p className="w-full text-sm text-ember">
+                {statusLabel(selected.status)} — cannot save to pipeline.
+              </p>
+            )}
             {selected.phone && (
               <a className="rounded-full border border-white/15 px-4 py-2 text-sm" href={telHref(selected.phone)}>
                 Dial
@@ -236,16 +250,17 @@ export function VerifiedDesk() {
       <section className="mt-12 grid gap-4 md:grid-cols-2">
         <div className="rounded-3xl border border-ember/30 bg-clay p-5">
           <p className="text-xs uppercase tracking-[0.16em] text-ember">Parked — no outreach</p>
+          <p className="mt-2 text-sm text-mist">HOLD and DNC stay here. They cannot be saved to the pipeline.</p>
           <ul className="mt-4 space-y-4">
             {VERIFIED_PARKED.map((lead) => (
               <li key={lead.id}>
-                <p className="text-paper">
-                  {lead.name}{" "}
-                  <span className="text-xs uppercase tracking-wider text-ember">
-                    {lead.status === "dnc" ? "DNC" : "HOLD"}
-                    {lead.confidence ? ` · ${lead.confidence}` : ""}
-                  </span>
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-paper">{lead.name}</p>
+                  <StatusBadge status={lead.status} />
+                  {lead.confidence && (
+                    <span className="text-xs uppercase tracking-wider text-mist">{lead.confidence}</span>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-mist">{lead.why}</p>
               </li>
             ))}
@@ -266,6 +281,22 @@ export function VerifiedDesk() {
         </div>
       </section>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: ContactStatus }) {
+  const label = statusLabel(status);
+  if (status === "safe") {
+    return (
+      <span className="rounded-full bg-moss/15 px-3 py-1 text-[11px] uppercase tracking-wider text-moss">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-ember/15 px-3 py-1 text-[11px] uppercase tracking-wider text-ember">
+      {label}
+    </span>
   );
 }
 
