@@ -1,4 +1,5 @@
 import type { Lead } from "./types";
+import bakersfield from "../data/verified/bakersfield.json";
 
 export type ContactStatus = "safe" | "hold" | "dnc";
 export type Intent = "high" | "medium";
@@ -35,165 +36,10 @@ export type VerifiedLead = {
   license?: string;
 };
 
-export const BAKERSFIELD_MARKET = {
-  id: "bakersfield",
-  label: "Bakersfield / Oildale",
-  areaCode: "661",
-  sources: "CSLB, SOS, BBB, FMCSA, and official pages first. Directories only as backup.",
-  note: "Flags cleared against primary sources. No outreach has been sent from this desk.",
-};
-
-export const VERIFIED_TOP5: VerifiedLead[] = [
-  {
-    id: "white-lane-donuts",
-    rank: 1,
-    name: "White Lane Donuts",
-    trade: "Bakery / donuts",
-    intent: "high",
-    opportunityScore: 82,
-    confidence: "HIGH",
-    websiteStatus: "NONE",
-    contactMethod: "phone",
-    status: "safe",
-    phone: "(661) 836-2906",
-    ignorePhones: ["(661) 827-9606"],
-    address: "1561 White Ln, Bakersfield, CA",
-    websiteNote: "None found — true greenfield.",
-    why: "Confirmed active (2025 reviews). True greenfield. Junk directory data discarded.",
-    doNot: ["Do not call (661) 827-9606."],
-    play: "greenfield",
-    city: "Bakersfield, CA",
-  },
-  {
-    id: "oildale-nails",
-    rank: 2,
-    name: "Oildale Nails",
-    trade: "Nail salon",
-    intent: "medium",
-    opportunityScore: 72,
-    confidence: "MEDIUM",
-    websiteStatus: "NONE",
-    contactMethod: "phone",
-    status: "safe",
-    phone: "(661) 391-8830",
-    address: "2509 N Chester Ave, Oildale, CA",
-    websiteNote: "None found.",
-    why: "No open conflicts. Salon booking gap. Clean phone and address.",
-    doNot: [],
-    play: "greenfield",
-    city: "Oildale, CA",
-  },
-  {
-    id: "briceno-electric-hector",
-    rank: 3,
-    name: "Briceno Electric (Hector only)",
-    trade: "Electrician",
-    intent: "medium",
-    opportunityScore: 74,
-    confidence: "MEDIUM",
-    websiteStatus: "NONE",
-    contactMethod: "phone",
-    status: "safe",
-    phone: "(661) 599-9646",
-    ignoreEmails: ["williamb@"],
-    ignoreSites: ["bricenoelectric.com"],
-    address: "Street candidate: 1305 Camino Del Oeste",
-    mailing: "PO Box 11034",
-    websiteNote: "None confirmed for Hector. The live site belongs to a different Briceno identity.",
-    why: "CSLB #900822 and BBB align on Hector. Pitch as a no-site trades lead for Hector only.",
-    doNot: [
-      "Do not use williamb@ or bricenoelectric.com — that site is not Hector’s.",
-      "Pitch Hector only. Do not treat the other Briceno identity as this lead.",
-    ],
-    play: "greenfield",
-    city: "Bakersfield, CA",
-    license: "CSLB #900822",
-  },
-  {
-    id: "hometown-plumbing",
-    rank: 4,
-    name: "Hometown Plumbing",
-    trade: "Plumbing",
-    intent: "high",
-    opportunityScore: 68,
-    confidence: "HIGH",
-    websiteStatus: "OUTDATED",
-    contactMethod: "phone_or_email",
-    status: "safe",
-    phone: "(661) 837-4569",
-    email: "hometownplumbing@att.net",
-    address: "9502 Empire State Dr, Bakersfield, CA",
-    mailing: "PO Box 41116",
-    discardAddresses: ["Norris Rd"],
-    website: "https://hometownplumbingbakersfield.com",
-    websiteNote: "OUTDATED / WEAK — testimonials dated 1/01/1970.",
-    why: "Address cleared via FMCSA. Clear redesign pitch with a public email.",
-    doNot: ["Discard the Norris Rd address."],
-    play: "redesign",
-    city: "Bakersfield, CA",
-    license: "CSLB #850879",
-  },
-  {
-    id: "luna-electric",
-    rank: 5,
-    name: "Luna Electric Inc.",
-    trade: "Electrician",
-    intent: "high",
-    opportunityScore: 62,
-    confidence: "HIGH",
-    websiteStatus: "WEAK",
-    contactMethod: "phone_or_email",
-    status: "safe",
-    phone: "(661) 461-8042",
-    email: "accounting@lunaelectric07.com",
-    address: "3700 Easton Dr #20, Bakersfield, CA",
-    website: "https://lunaelectric07.com",
-    websiteNote: "WEAK — SEO-spam title and typos. Redesign, not greenfield.",
-    why: "Contacts consistent across sources. Redesign, not a from-scratch site.",
-    doNot: [
-      "CSLB #1008195 is mirror-corroborated only. Do not claim live board confirmation until rechecked.",
-    ],
-    play: "redesign",
-    city: "Bakersfield, CA",
-    license: "CSLB #1008195",
-  },
-];
-
-export const VERIFIED_PARKED: VerifiedLead[] = [
-  {
-    id: "johnnys-barber",
-    name: "Johnny's Barber",
-    trade: "Barber",
-    confidence: "LOW",
-    websiteStatus: "UNCLEAR",
-    contactMethod: "none",
-    status: "hold",
-    address: "Bakersfield / Oildale — identity unresolved",
-    why: "HOLD. Multi-shop / trade-name conflict. Do not outreach until the shop identity is unstuck.",
-    doNot: ["No calls, emails, or DMs until the conflict is cleared."],
-    city: "Bakersfield, CA",
-  },
-  {
-    id: "oildale-barber",
-    name: "Oildale Barber",
-    trade: "Barber",
-    websiteStatus: "CLOSED",
-    contactMethod: "none",
-    status: "dnc",
-    address: "Closed / Norris Barber Shop",
-    why: "DO NOT CONTACT. Closed, or it is Norris Barber Shop — not an open lead.",
-    doNot: ["Do not call. Do not email. Do not visit as a prospect."],
-    city: "Oildale, CA",
-  },
-];
-
-export const VERIFIED_BENCH = [
-  "Hybrid Health",
-  "JJ Concrete",
-  "Able Auto",
-  "Brimhall",
-  "24th Street Cafe",
-];
+export const BAKERSFIELD_MARKET = bakersfield.market;
+export const VERIFIED_TOP5 = bakersfield.top5 as VerifiedLead[];
+export const VERIFIED_PARKED = bakersfield.parked as VerifiedLead[];
+export const VERIFIED_BENCH = bakersfield.bench;
 
 export function canContact(lead: VerifiedLead): boolean {
   return lead.status === "safe";
@@ -212,6 +58,12 @@ export function contactMethodLabel(method?: ContactMethod): string {
   if (method === "phone_or_email") return "Phone or email";
   if (method === "none") return "None";
   return "—";
+}
+
+export function statusLabel(status: ContactStatus): "Verified" | "HOLD" | "DNC" {
+  if (status === "safe") return "Verified";
+  if (status === "hold") return "HOLD";
+  return "DNC";
 }
 
 export function verifiedToLead(lead: VerifiedLead): Lead {
