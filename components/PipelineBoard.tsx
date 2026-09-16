@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { contactabilityLabel } from "@/lib/qualify";
 import { kindLabel } from "@/lib/score";
 import { removeLead, savePipeline, toCsv, updateLead, updateLeadStatus } from "@/lib/storage";
-import type { Lead, LeadStatus } from "@/lib/types";
+import type { DeepQualifyResult, Lead, LeadStatus } from "@/lib/types";
 import { useHydratedPipeline } from "@/lib/useClientStore";
+import { DeepQualifyPanel } from "./DeepQualifyPanel";
 import { ScoreMark } from "./ScoreMark";
 
 const COLUMNS: { id: LeadStatus; label: string; hint: string }[] = [
@@ -26,6 +28,8 @@ function todayStamp(): string {
 export function PipelineBoard() {
   const [leads, setLeads, hydrated] = useHydratedPipeline();
   const [dragging, setDragging] = useState<string | null>(null);
+  const [qualifyId, setQualifyId] = useState<string | null>(null);
+  const qualifying = leads.find((lead) => lead.id === qualifyId);
 
   const grouped = useMemo(() => {
     return COLUMNS.reduce(
@@ -53,6 +57,11 @@ export function PipelineBoard() {
 
   function patch(id: string, fields: Partial<Pick<Lead, "notes" | "followUpDate">>) {
     setLeads(updateLead(id, fields));
+  }
+
+  function saveQualify(id: string, result: DeepQualifyResult, demoCandidate: boolean) {
+    setLeads(updateLead(id, { deepQualify: result, demoCandidate }));
+    setQualifyId(null);
   }
 
   function exportAll() {
@@ -141,10 +150,33 @@ export function PipelineBoard() {
                           {lead.city} · {kindLabel(lead.kind)}
                           {lead.source === "verified" ? " · Verified" : lead.source === "demo" ? " · Sample" : " · Live"}
                         </p>
+                        {(lead.deepQualify || lead.demoCandidate) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {lead.deepQualify && (
+                              <span className="rounded-full border border-moss/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-moss">
+                                Qualified · {lead.deepQualify.recommendedAction}
+                              </span>
+                            )}
+                            {lead.demoCandidate && (
+                              <span className="rounded-full bg-moss px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink">
+                                Demo
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <ScoreMark score={lead.score} kind={lead.kind} compact />
                     </div>
                     {lead.phone && <p className="mt-2 text-xs text-mist">{lead.phone}</p>}
+                    {lead.deepQualify && (
+                      <p className="mt-2 text-[11px] leading-5 text-mist">
+                        Opp {lead.deepQualify.opportunityScore} · Fit {lead.deepQualify.websiteFit} ·{" "}
+                        {lead.deepQualify.confidence} · {contactabilityLabel(lead.deepQualify.contactability)}
+                        {lead.deepQualify.businessQuality !== "unknown"
+                          ? ` · Quality ${lead.deepQualify.businessQuality}`
+                          : ""}
+                      </p>
+                    )}
                     <label className="mt-3 block text-[11px] uppercase tracking-wider text-mist">
                       Status
                       <select
@@ -181,13 +213,23 @@ export function PipelineBoard() {
                         placeholder="What you said, what they said"
                       />
                     </label>
-                    <button
-                      type="button"
-                      className="mt-2 rounded-full border border-white/10 px-2 py-1 text-[11px] text-ember"
-                      onClick={() => clear(lead.id)}
-                    >
-                      Remove
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-moss/30 px-2 py-1 text-[11px] text-moss"
+                        onClick={() => setQualifyId(lead.id)}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        {lead.deepQualify ? "Edit Deep Qualify" : "Deep Qualify"}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-ember"
+                        onClick={() => clear(lead.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -195,6 +237,14 @@ export function PipelineBoard() {
           </section>
         ))}
       </div>
+      {qualifying && (
+        <DeepQualifyPanel
+          key={qualifying.id}
+          lead={qualifying}
+          onClose={() => setQualifyId(null)}
+          onSave={(result, demoCandidate) => saveQualify(qualifying.id, result, demoCandidate)}
+        />
+      )}
     </div>
   );
 }
