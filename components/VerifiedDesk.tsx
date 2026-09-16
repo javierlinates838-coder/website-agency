@@ -225,7 +225,7 @@ export function VerifiedDesk() {
               onClick={copyScript}
               className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
             >
-              {copied ? "Copied" : "Copy script"}
+              {copied ? "Copied" : "Copy\u00a0script"}
             </button>
           </div>
         </aside>

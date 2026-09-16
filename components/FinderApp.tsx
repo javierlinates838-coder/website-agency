@@ -421,7 +421,7 @@ export function FinderApp() {
                   onClick={() => copyPitch(selected)}
                   className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
                 >
-                  {copied ? "Copied" : "Copy pitch"}
+                  {copied ? "Copied" : "Copy\u00a0pitch"}
                 </button>
                 <p className="mt-3 text-xs text-mist">
                   {kindLabel(selected.kind)} is the angle. Keep it specific and short — nobody wants a spray of cold spam.
