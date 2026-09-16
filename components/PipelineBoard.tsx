@@ -114,7 +114,7 @@ export function PipelineBoard() {
                         {lead.city} · {kindLabel(lead.kind)}
                       </p>
                     </div>
-                    <ScoreMark score={lead.score} kind={lead.kind} />
+                    <ScoreMark score={lead.score} kind={lead.kind} compact />
                   </div>
                   {lead.phone && <p className="mt-2 text-xs text-mist">{lead.phone}</p>}
                   <div className="mt-3 flex flex-wrap gap-2">

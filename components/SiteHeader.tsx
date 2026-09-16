@@ -6,9 +6,9 @@ const links = [
   { href: "/playbook", label: "Playbook" },
 ];
 
-export function SiteHeader({ dim }: { dim?: boolean }) {
+export function SiteHeader() {
   return (
-    <header className={`relative z-20 ${dim ? "border-b border-white/5" : ""}`}>
+    <header className="sticky top-0 z-30 border-b border-white/5 bg-ink/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-5">
         <Link href="/" className="group flex items-center gap-3">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-moss text-ink">
@@ -28,7 +28,7 @@ export function SiteHeader({ dim }: { dim?: boolean }) {
         </nav>
         <Link
           href="/finder"
-          className="rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-moss"
+          className="hidden rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-moss sm:inline-flex"
         >
           Find clients
         </Link>

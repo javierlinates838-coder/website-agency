@@ -4,7 +4,7 @@ import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
 export default function FinderPage() {
   return (
     <div>
-      <SiteHeader dim />
+      <SiteHeader />
       <FinderApp />
       <SiteFooter />
     </div>

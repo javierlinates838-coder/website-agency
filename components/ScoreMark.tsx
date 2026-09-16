@@ -8,13 +8,27 @@ const toneClass = {
   cold: "bg-white/10 text-paper",
 };
 
-export function ScoreMark({ score, kind }: { score: number; kind: OpportunityKind }) {
+export function ScoreMark({
+  score,
+  kind,
+  compact,
+}: {
+  score: number;
+  kind: OpportunityKind;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <span className={`grid h-11 w-11 place-items-center rounded-2xl text-sm font-semibold ${toneClass[scoreTone(score)]}`}>
+    <div className="flex shrink-0 items-center gap-2">
+      <span
+        className={`grid place-items-center font-semibold ${
+          compact ? "h-8 w-8 rounded-xl text-xs" : "h-11 w-11 rounded-2xl text-sm"
+        } ${toneClass[scoreTone(score)]}`}
+      >
         {score}
       </span>
-      <span className="text-xs uppercase tracking-[0.16em] text-mist">{kindLabel(kind)}</span>
+      {!compact && (
+        <span className="text-xs uppercase tracking-[0.16em] text-mist">{kindLabel(kind)}</span>
+      )}
     </div>
   );
 }

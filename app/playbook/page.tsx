@@ -31,7 +31,7 @@ const week = [
 export default function PlaybookPage() {
   return (
     <div>
-      <SiteHeader dim />
+      <SiteHeader />
       <main className="mx-auto max-w-3xl px-5 pb-20 pt-10">
         <p className="text-xs uppercase tracking-[0.22em] text-moss">Playbook</p>
         <h1 className="mt-3 font-display text-5xl tracking-tight">Turn a list into booked work.</h1>

@@ -49,7 +49,7 @@ export default function HomePage() {
                 How to reach out
               </Link>
             </div>
-            <dl className="mt-12 grid max-w-lg grid-cols-3 gap-4 text-sm">
+            <dl className="mt-12 grid max-w-lg gap-4 text-sm sm:grid-cols-3">
               <div>
                 <dt className="text-mist">Looks for</dt>
                 <dd className="mt-1 text-paper">Missing, social-only, and outdated sites</dd>

@@ -4,7 +4,7 @@ import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
 export default function PipelinePage() {
   return (
     <div>
-      <SiteHeader dim />
+      <SiteHeader />
       <main className="mx-auto max-w-6xl px-5 pb-16 pt-8">
         <p className="text-xs uppercase tracking-[0.22em] text-moss">Pipeline</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-5xl">Work the list.</h1>

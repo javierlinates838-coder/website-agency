@@ -411,7 +411,7 @@ export function FinderApp() {
                 <button
                   type="button"
                   onClick={() => copyPitch(selected)}
-                  className="mt-3 rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
+                  className="mt-3 whitespace-nowrap rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink"
                 >
                   {copied ? "Copied" : "Copy pitch"}
                 </button>

@@ -30,7 +30,7 @@ export function buildPitch(
   const cityBit = lead.city ? ` in ${lead.city}` : "";
 
   if (style === "sms") {
-    return `Hi, this is ${who.name} from ${studio}. I was looking at local ${lead.industryLabel.toLowerCase()}${cityBit} and noticed ${lead.name} ${hook.toLowerCase()} Happy to sketch a simple site this week if useful — ${who.email}`;
+    return `Hi, this is ${who.name} from ${studio}. I was looking at local ${lead.industryLabel.toLowerCase()}${cityBit} and noticed ${lead.name}: ${hook} Happy to sketch a simple site this week if useful — ${who.email}`;
   }
 
   if (style === "dm") {
