@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import {
   buildBrief,
   contactabilityLabel,
@@ -24,6 +30,25 @@ import type {
 const ACTIONS: RecommendedAction[] = ["PURSUE", "MAYBE", "SKIP", "HOLD", "DNC"];
 const ACTIVE: ActiveStatus[] = ["active", "unclear", "inactive"];
 const CONFIDENCE: Confidence[] = ["HIGH", "MEDIUM", "LOW"];
+
+export function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  const editableAttr = target.getAttribute("contenteditable");
+  if (target.isContentEditable || editableAttr === "" || editableAttr === "true" || editableAttr === "plaintext-only") {
+    return true;
+  }
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"));
+}
+
+export function shouldCloseModalOnEscape(event: { key: string; target: EventTarget | null }): boolean {
+  return event.key === "Escape" && !isEditableTarget(event.target);
+}
+
+function stopModalEvent(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
+}
 
 export function DeepQualifyPanel({
   lead,
@@ -72,11 +97,30 @@ export function DeepQualifyPanel({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (isEditableTarget(event.target)) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      // Backspace outside a field can trigger browser-back and unmount the modal.
+      if (event.key === "Backspace") event.preventDefault();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  function handleBackdropClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return;
+    onClose();
+  }
+
+  function handlePanelKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    stopModalEvent(event);
+    if (!shouldCloseModalOnEscape(event)) return;
+    event.preventDefault();
+    onClose();
+  }
 
   function patch(partial: Partial<DeepQualifyResult>) {
     setDraft((current) => ({ ...current, ...partial }));
@@ -122,13 +166,21 @@ export function DeepQualifyPanel({
   const opportunities = [0, 1, 2].map((index) => draft.opportunities[index] || "");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-3 sm:items-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-3 sm:items-center"
+      data-testid="deep-qualify-backdrop"
+      onClick={handleBackdropClick}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="deep-qualify-title"
         className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.75rem] border border-white/10 bg-clay p-5 shadow-glow sm:p-6"
-        onClick={(event) => event.stopPropagation()}
+        onClick={stopModalEvent}
+        onPointerDown={stopModalEvent}
+        onMouseDown={stopModalEvent}
+        onKeyDown={handlePanelKeyDown}
+        onKeyUp={stopModalEvent}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
