@@ -188,15 +188,14 @@ describe("fetchOverpass resilience", () => {
     expect(elements).toHaveLength(1);
     expect(elements[0].id).toBe(9);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("overpass-api.de");
-    expect(String(fetchMock.mock.calls[2][0])).toContain("lz4.overpass-api.de");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("overpass.openstreetmap.fr");
+    expect(String(fetchMock.mock.calls[2][0])).toContain("overpass.osm.ch");
   });
 
-  it("retries the same endpoint twice on timeout then moves on", async () => {
+  it("rotates immediately on timeout instead of waiting twice on a hung host", async () => {
     const abortErr = new DOMException("The operation was aborted.", "AbortError");
     const fetchMock = vi
       .fn()
-      .mockRejectedValueOnce(abortErr)
       .mockRejectedValueOnce(abortErr)
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ elements: [{ id: 3, type: "node" }] }), {
@@ -208,7 +207,7 @@ describe("fetchOverpass resilience", () => {
 
     const elements = await fetchOverpass('[out:json];out;');
     expect(elements[0].id).toBe(3);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
