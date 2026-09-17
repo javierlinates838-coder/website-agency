@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildDemoLeads } from "@/lib/demo";
 import { getIndustry } from "@/lib/industries";
-import { buildOverpassQuery, elementsToLeads, fetchOverpass, geocodeCity } from "@/lib/osm";
+import { searchIndustryLeads } from "@/lib/osm";
 import { compareLeads } from "@/lib/score";
 import type { SearchResponse } from "@/lib/types";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       demo?: boolean;
     };
     const city = (body.city || "").trim();
-    const industryId = (body.industry || "restaurants").trim();
+    const industryId = (body.industry || "painters").trim();
     const radiusKm = Math.min(25, Math.max(2, Number(body.radiusKm) || 8));
     getIndustry(industryId);
 
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Add a city to search." }, { status: 400 });
     }
 
+    // Samples only when explicitly requested — never mixed into live.
     if (body.demo) {
       const payload: SearchResponse = {
         cityLabel: city,
@@ -39,29 +40,23 @@ export async function POST(request: Request) {
     }
 
     try {
-      const geo = await geocodeCity(city);
-      const query = buildOverpassQuery(geo.lat, geo.lon, radiusKm * 1000, industryId);
-      const elements = await fetchOverpass(query);
-      const liveLeads = elementsToLeads(elements, city, industryId).sort(compareLeads);
-
-      const usedDemo = liveLeads.length < 4;
-      const leads = usedDemo
-        ? [...liveLeads, ...buildDemoLeads(city, industryId)].slice(0, 14).sort(compareLeads)
-        : liveLeads;
+      const result = await searchIndustryLeads(city, industryId, radiusKm);
+      const liveLeads = result.leads.sort(compareLeads);
 
       const payload: SearchResponse = {
-        cityLabel: geo.label,
-        lat: geo.lat,
-        lon: geo.lon,
-        radiusMeters: radiusKm * 1000,
-        leads,
+        cityLabel: result.cityLabel,
+        lat: result.lat,
+        lon: result.lon,
+        radiusMeters: result.radiusMeters,
+        leads: liveLeads,
         liveCount: liveLeads.length,
-        usedDemo,
-        warning: usedDemo
-          ? liveLeads.length === 0
-            ? "Live map data returned no named businesses here, so sample leads are included so you can still practice outreach."
-            : "Only a few live listings came back. Sample leads were added so the board is usable."
-          : undefined,
+        usedDemo: false,
+        warning:
+          liveLeads.length === 0
+            ? "Live map data returned no named businesses in this area. Widen the radius, try a nearby city, or turn on demo mode for sample leads."
+            : liveLeads.length < 4
+              ? "Only a few live listings came back from OpenStreetMap. Try a wider radius or a denser nearby city — demo mode is separate and was not mixed in."
+              : undefined,
       };
       return NextResponse.json(payload);
     } catch (error) {
@@ -71,10 +66,10 @@ export async function POST(request: Request) {
         lat: 0,
         lon: 0,
         radiusMeters: radiusKm * 1000,
-        leads: buildDemoLeads(city, industryId).sort(compareLeads),
+        leads: [],
         liveCount: 0,
-        usedDemo: true,
-        warning: `${message} Sample leads are shown instead.`,
+        usedDemo: false,
+        warning: `${message} No live results. Turn on demo mode if you want sample leads to practice with.`,
       };
       return NextResponse.json(payload);
     }
