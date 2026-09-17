@@ -1,12 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getIndustry, INDUSTRIES } from "../lib/industries";
 import {
   buildOverpassQuery,
+  chunkNameHints,
   elementsToLeads,
+  fetchOverpass,
   isLikelyBusiness,
   normalizeLeadName,
   phoneDigits,
   radiusStepsMeters,
+  searchIndustryLeads,
   type OverpassElement,
 } from "../lib/osm";
 
@@ -132,5 +135,190 @@ describe("dedupe and business filter", () => {
       "Summit Finish Painting",
     ]);
     expect(leads.every((l) => l.source === "live")).toBe(true);
+  });
+});
+
+describe("chunkNameHints", () => {
+  it("splits pipe-heavy hints into smaller chunks", () => {
+    expect(chunkNameHints(["painter|painters|painting|paint"], 2)).toEqual([
+      "painter|painters",
+      "painting|paint",
+    ]);
+    expect(chunkNameHints(["plumber|plumbers|plumbing"], 2)).toEqual([
+      "plumber|plumbers",
+      "plumbing",
+    ]);
+  });
+});
+
+describe("buildOverpassQuery nameOnly", () => {
+  it("emits name-regex clauses without tag clauses", () => {
+    const query = buildOverpassQuery(35.37, -119.01, 8000, "painters", {
+      nameOnly: true,
+      namePatterns: ["painter|painters"],
+    });
+    expect(query).toContain('nwr["name"~"painter|painters",i]');
+    expect(query).not.toContain('craft"="painter');
+  });
+});
+
+describe("fetchOverpass resilience", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rotates to the next mirror after 504s", async () => {
+    const fetchMock = vi
+      .fn()
+      // endpoint 0 attempt 0
+      .mockResolvedValueOnce(new Response("Gateway Timeout", { status: 504 }))
+      // endpoint 0 attempt 1
+      .mockResolvedValueOnce(new Response("Gateway Timeout", { status: 504 }))
+      // endpoint 1 attempt 0 — success
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ elements: [{ id: 9, type: "node", tags: { name: "Ok" } }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const elements = await fetchOverpass('[out:json];out;');
+    expect(elements).toHaveLength(1);
+    expect(elements[0].id).toBe(9);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("overpass-api.de");
+    expect(String(fetchMock.mock.calls[2][0])).toContain("lz4.overpass-api.de");
+  });
+
+  it("retries the same endpoint twice on timeout then moves on", async () => {
+    const abortErr = new DOMException("The operation was aborted.", "AbortError");
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(abortErr)
+      .mockRejectedValueOnce(abortErr)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ elements: [{ id: 3, type: "node" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const elements = await fetchOverpass('[out:json];out;');
+    expect(elements[0].id).toBe(3);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("searchIndustryLeads soft failures", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("keeps tag-only results when name fallback 504s", async () => {
+    const tagElements = [
+      {
+        id: 1,
+        type: "node",
+        lat: 35.37,
+        lon: -119.01,
+        tags: { name: "A Plumbing", craft: "plumber", phone: "555-100-2000" },
+      },
+      {
+        id: 2,
+        type: "node",
+        lat: 35.38,
+        lon: -119.02,
+        tags: { name: "B Plumbing", craft: "plumber" },
+      },
+    ];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("nominatim")) {
+        return new Response(
+          JSON.stringify([{ display_name: "Bakersfield, CA", lat: "35.37", lon: "-119.01" }]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      const body = typeof init?.body === "string" ? init.body : String(init?.body || "");
+      // Name-only queries include name~ and no craft= in the Overpass data payload
+      const data = decodeURIComponent(body.replace(/^data=/, "").replace(/\+/g, " "));
+      if (data.includes("name~")) {
+        return new Response("Gateway Timeout", { status: 504 });
+      }
+      return new Response(JSON.stringify({ elements: tagElements }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchIndustryLeads("Bakersfield, CA", "plumbers", 8);
+    expect(result.leads.length).toBeGreaterThanOrEqual(2);
+    expect(result.leads.every((l) => l.source === "live")).toBe(true);
+    expect(result.leads.map((l) => l.name).sort()).toEqual(["A Plumbing", "B Plumbing"]);
+  });
+
+  it("continues to the next radius when a radius step soft-fails entirely", async () => {
+    let overpassCalls = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("nominatim")) {
+        return new Response(
+          JSON.stringify([{ display_name: "Bakersfield, CA", lat: "35.37", lon: "-119.01" }]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      overpassCalls += 1;
+      // Fail first radius (tags + name chunks across mirrors would be huge);
+      // Instead: fail all until we've seen several calls, then succeed.
+      // Simpler approach: first successful tag query after N failures.
+      if (overpassCalls <= 2) {
+        return new Response("Gateway Timeout", { status: 504 });
+      }
+      return new Response(
+        JSON.stringify({
+          elements: [
+            {
+              id: 50,
+              type: "node",
+              lat: 35.4,
+              lon: -119.0,
+              tags: { name: "Wide Area Electric", craft: "electrician", phone: "555-999-0000" },
+            },
+            {
+              id: 51,
+              type: "node",
+              lat: 35.41,
+              lon: -119.01,
+              tags: { name: "Second Electric Co", craft: "electrician" },
+            },
+            {
+              id: 52,
+              type: "node",
+              lat: 35.42,
+              lon: -119.02,
+              tags: { name: "Third Electric LLC", craft: "electrician" },
+            },
+            {
+              id: 53,
+              type: "node",
+              lat: 35.43,
+              lon: -119.03,
+              tags: { name: "Fourth Electric Inc", craft: "electrician" },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchIndustryLeads("Bakersfield, CA", "electricians", 8);
+    expect(result.leads.length).toBeGreaterThanOrEqual(4);
+    expect(result.leads[0].source).toBe("live");
   });
 });

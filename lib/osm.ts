@@ -8,6 +8,18 @@ const USER_AGENT =
 export const MAX_RADIUS_METERS = 25_000;
 export const MIN_USEFUL_LEADS = 4;
 
+/** Public Overpass mirrors; rotated on 429/5xx/timeout. */
+export const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
+
+export const OVERPASS_FETCH_TIMEOUT_MS = 22_000;
+export const OVERPASS_TRIES_PER_ENDPOINT = 2;
+
 type NominatimHit = {
   display_name: string;
   lat: string;
@@ -82,15 +94,22 @@ export function buildOverpassQuery(
   lon: number,
   radius: number,
   industryId: string,
-  options?: { nameFallback?: boolean },
+  options?: { nameFallback?: boolean; nameOnly?: boolean; namePatterns?: string[] },
 ): string {
   const industry = getIndustry(industryId);
-  const clauses = industry.tags.map(
-    (tag) => `  nwr["${tag.key}"="${tag.value}"](around:${radius},${lat},${lon});`,
-  );
+  const clauses: string[] = [];
 
-  if (options?.nameFallback && industry.nameHints?.length) {
-    for (const hint of industry.nameHints) {
+  if (!options?.nameOnly) {
+    for (const tag of industry.tags) {
+      clauses.push(`  nwr["${tag.key}"="${tag.value}"](around:${radius},${lat},${lon});`);
+    }
+  }
+
+  if (options?.nameFallback || options?.nameOnly) {
+    const patterns = options.namePatterns?.length
+      ? options.namePatterns
+      : industry.nameHints || [];
+    for (const hint of patterns) {
       clauses.push(`  nwr["name"~"${hint}",i](around:${radius},${lat},${lon});`);
     }
   }
@@ -98,31 +117,73 @@ export function buildOverpassQuery(
   return `[out:json][timeout:25];\n(\n${clauses.join("\n")}\n);\nout center 80;`;
 }
 
+/** Split pipe-heavy nameHints into smaller sequential Overpass patterns. */
+export function chunkNameHints(hints: string[], chunkSize = 2): string[] {
+  const parts: string[] = [];
+  for (const hint of hints) {
+    const alts = hint.split("|").map((s) => s.trim()).filter(Boolean);
+    if (alts.length <= chunkSize) {
+      parts.push(alts.join("|") || hint);
+      continue;
+    }
+    for (let i = 0; i < alts.length; i += chunkSize) {
+      parts.push(alts.slice(i, i + chunkSize).join("|"));
+    }
+  }
+  return parts.length ? parts : hints;
+}
+
+function isRetriableOverpassStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504 || status >= 500;
+}
+
+function overpassErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.name === "AbortError" || /aborted|timeout|Timeout/i.test(error.message)) {
+      return "Overpass timeout";
+    }
+    return error.message;
+  }
+  return "Overpass request failed";
+}
+
+/**
+ * POST a query to public Overpass mirrors.
+ * Per-endpoint: up to 2 tries with ~22s AbortSignal timeout; rotate on 429/5xx/timeout.
+ */
 export async function fetchOverpass(query: string): Promise<OverpassElement[]> {
-  const endpoints = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-  ];
   let lastError: Error | null = null;
 
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "User-Agent": USER_AGENT,
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        },
-        body: new URLSearchParams({ data: query }),
-      });
-      if (!response.ok) {
-        lastError = new Error(`Overpass ${response.status}`);
-        continue;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    for (let attempt = 0; attempt < OVERPASS_TRIES_PER_ENDPOINT; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), OVERPASS_FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          },
+          body: new URLSearchParams({ data: query }),
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          lastError = new Error(`Overpass ${response.status}`);
+          if (isRetriableOverpassStatus(response.status)) {
+            continue; // retry same endpoint, then rotate
+          }
+          break; // non-retriable on this host → next mirror
+        }
+        const json = (await response.json()) as { elements?: OverpassElement[] };
+        return json.elements || [];
+      } catch (error) {
+        lastError = new Error(overpassErrorMessage(error));
+        // timeout / network → retry then rotate
+      } finally {
+        clearTimeout(timer);
       }
-      const json = (await response.json()) as { elements?: OverpassElement[] };
-      return json.elements || [];
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Overpass request failed");
     }
   }
 
@@ -253,6 +314,39 @@ export function elementsToLeads(
   return leads;
 }
 
+/** Name-regex only queries, chunked sequentially; failures skip that chunk. */
+async function fetchNameFallbackElements(
+  lat: number,
+  lon: number,
+  radius: number,
+  industryId: string,
+  existingNamedCount: number,
+): Promise<OverpassElement[]> {
+  const industry = getIndustry(industryId);
+  const hints = industry.nameHints || [];
+  if (!hints.length) return [];
+
+  const chunks = chunkNameHints(hints);
+  let merged: OverpassElement[] = [];
+
+  for (const pattern of chunks) {
+    try {
+      const query = buildOverpassQuery(lat, lon, radius, industryId, {
+        nameOnly: true,
+        namePatterns: [pattern],
+      });
+      const els = await fetchOverpass(query);
+      merged = mergeElements(merged, els);
+      const namedFromNames = elementsToLeads(merged, "probe", industryId).length;
+      if (existingNamedCount + namedFromNames >= MIN_USEFUL_LEADS) break;
+    } catch {
+      // keep going with remaining chunks / tag-only results
+    }
+  }
+
+  return merged;
+}
+
 async function fetchElementsForRadius(
   lat: number,
   lon: number,
@@ -260,21 +354,42 @@ async function fetchElementsForRadius(
   industryId: string,
 ): Promise<OverpassElement[]> {
   const industry = getIndustry(industryId);
-  let elements = await fetchOverpass(buildOverpassQuery(lat, lon, radius, industryId, { nameFallback: false }));
+  let elements: OverpassElement[] = [];
+
+  // Tags-first (cheaper). Soft-fail so name fallback / next radius can still run.
+  try {
+    elements = await fetchOverpass(
+      buildOverpassQuery(lat, lon, radius, industryId, { nameFallback: false }),
+    );
+  } catch {
+    elements = [];
+  }
+
   const named = elementsToLeads(elements, "probe", industryId).length;
 
   if (named < MIN_USEFUL_LEADS && industry.nameHints?.length) {
-    const withNames = await fetchOverpass(
-      buildOverpassQuery(lat, lon, radius, industryId, { nameFallback: true }),
-    );
-    elements = mergeElements(elements, withNames);
+    try {
+      const withNames = await fetchNameFallbackElements(
+        lat,
+        lon,
+        radius,
+        industryId,
+        named,
+      );
+      elements = mergeElements(elements, withNames);
+    } catch {
+      // Keep tag-only results instead of throwing on name-regex 504/timeout
+    }
   }
 
+  // If both tags and names yielded nothing and tags had hard-failed with empty,
+  // still return [] rather than throw — caller expands radius / soft-fails.
   return elements;
 }
 
 /**
  * Geocode + Overpass with tag variants, optional name fallbacks, and bounded radius expand.
+ * Per-radius Overpass failures are caught so later radius steps can still succeed.
  */
 export async function searchIndustryLeads(
   city: string,
@@ -293,13 +408,27 @@ export async function searchIndustryLeads(
 
   let bestLeads: Lead[] = [];
   let usedRadius = steps[0];
+  let lastRadiusError: Error | null = null;
+  let anyRadiusOk = false;
 
   for (const radius of steps) {
-    const elements = await fetchElementsForRadius(geo.lat, geo.lon, radius, industryId);
-    const leads = elementsToLeads(elements, city, industryId);
-    bestLeads = leads;
-    usedRadius = radius;
-    if (leads.length >= MIN_USEFUL_LEADS) break;
+    try {
+      const elements = await fetchElementsForRadius(geo.lat, geo.lon, radius, industryId);
+      anyRadiusOk = true;
+      const leads = elementsToLeads(elements, city, industryId);
+      if (leads.length >= bestLeads.length) {
+        bestLeads = leads;
+        usedRadius = radius;
+      }
+      if (leads.length >= MIN_USEFUL_LEADS) break;
+    } catch (error) {
+      lastRadiusError = error instanceof Error ? error : new Error("Overpass request failed");
+      // continue to next radius step
+    }
+  }
+
+  if (!anyRadiusOk && bestLeads.length === 0 && lastRadiusError) {
+    throw lastRadiusError;
   }
 
   return {
