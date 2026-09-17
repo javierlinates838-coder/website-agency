@@ -66,3 +66,25 @@ npm run dev
 - `tests/search.test.ts` (new)
 - `vitest.config.ts`
 - `CHANGE_SUMMARY.md` (this file)
+
+---
+
+## Google Places (New) Text Search — primary live source (2026-09-16 PT)
+
+### Behavior
+- When `GOOGLE_PLACES_API_KEY` is set (via `.env.local`, gitignored): live `/api/search` uses **Places Text Search (New)** `POST https://places.googleapis.com/v1/places:searchText`.
+- When unset: existing OSM `searchIndustryLeads` fallback.
+- Demo mode unchanged — never mixed into live.
+
+### Implementation
+- **`lib/googlePlaces.ts`** (new): text queries (`painters in Bakersfield, CA`), optional `includedType`, field mask, map → `Lead` with `id` `google:{placeId}`, `source: "live"`. Skips `CLOSED_PERMANENTLY`, requires display name, dedupes by place id, never invents phone/website.
+- **`app/api/search/route.ts`**: prefer Google when key present.
+- **`tests/googlePlaces.test.ts`**: mock fetch; helpers + mapping + request headers.
+- **`tests/search.test.ts`**: Google vs OSM branching; demo never calls Google.
+
+### Verify
+```bash
+npm test && npm run build
+# Live probe (key in .env.local; do not echo key):
+# POST /api/search demo:false for painters/plumbers/electricians → /workspace/live-probe-google.json
+```

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { buildDemoLeads } from "@/lib/demo";
+import {
+  getGooglePlacesApiKey,
+  searchGooglePlacesIndustryLeads,
+} from "@/lib/googlePlaces";
 import { getIndustry } from "@/lib/industries";
 import { searchIndustryLeads } from "@/lib/osm";
 import { compareLeads } from "@/lib/score";
@@ -39,9 +43,14 @@ export async function POST(request: Request) {
       return NextResponse.json(payload);
     }
 
+    const googleKey = getGooglePlacesApiKey();
+
     try {
-      const result = await searchIndustryLeads(city, industryId, radiusKm);
+      const result = googleKey
+        ? await searchGooglePlacesIndustryLeads(city, industryId, radiusKm, googleKey)
+        : await searchIndustryLeads(city, industryId, radiusKm);
       const liveLeads = result.leads.sort(compareLeads);
+      const sourceHint = googleKey ? "Google Places" : "OpenStreetMap";
 
       const payload: SearchResponse = {
         cityLabel: result.cityLabel,
@@ -53,9 +62,9 @@ export async function POST(request: Request) {
         usedDemo: false,
         warning:
           liveLeads.length === 0
-            ? "Live map data returned no named businesses in this area. Widen the radius, try a nearby city, or turn on demo mode for sample leads."
+            ? `Live ${sourceHint} data returned no named businesses in this area. Widen the radius, try a nearby city, or turn on demo mode for sample leads.`
             : liveLeads.length < 4
-              ? "Only a few live listings came back from OpenStreetMap. Try a wider radius or a denser nearby city — demo mode is separate and was not mixed in."
+              ? `Only a few live listings came back from ${sourceHint}. Try a wider radius or a denser nearby city — demo mode is separate and was not mixed in.`
               : undefined,
       };
       return NextResponse.json(payload);
