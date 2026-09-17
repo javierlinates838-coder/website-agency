@@ -113,7 +113,7 @@ describe("editable target helpers", () => {
     const textarea = document.createElement("textarea");
     const select = document.createElement("select");
     const editable = document.createElement("div");
-    editable.contentEditable = "true";
+    editable.setAttribute("contenteditable", "true");
     const button = document.createElement("button");
     expect(isEditableTarget(input)).toBe(true);
     expect(isEditableTarget(textarea)).toBe(true);
