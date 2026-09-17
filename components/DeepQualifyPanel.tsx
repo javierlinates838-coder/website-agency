@@ -9,6 +9,7 @@ import {
   isDemoCandidate,
   prefillDeepQualify,
   recommendAction,
+  resolveSuggestedAction,
   websiteFitFromNiche,
 } from "@/lib/qualify";
 import type {
@@ -35,7 +36,7 @@ export function DeepQualifyPanel({
 }) {
   const seeded = useMemo(() => prefillDeepQualify(lead), [lead]);
   const [draft, setDraft] = useState<DeepQualifyResult>(seeded);
-  const [actionOverridden, setActionOverridden] = useState(false);
+  const [actionOverridden, setActionOverridden] = useState(() => Boolean(lead.deepQualify));
   const [copied, setCopied] = useState(false);
   const [qualityInput, setQualityInput] = useState(
     seeded.businessQuality === "unknown" ? "" : String(seeded.businessQuality),
@@ -45,7 +46,7 @@ export function DeepQualifyPanel({
     () => websiteFitFromNiche(draft.niche || lead.industryLabel, lead.industry),
     [draft.niche, lead.industry, lead.industryLabel],
   );
-  const suggestedAction = useMemo(
+  const computedAction = useMemo(
     () =>
       recommendAction({
         name: draft.businessName,
@@ -57,9 +58,14 @@ export function DeepQualifyPanel({
       }),
     [draft.businessName, draft.phone, draft.activeStatus, draft.websiteFit, draft.opportunityScore, draft.contactability],
   );
+  const suggestedAction = resolveSuggestedAction({
+    savedOrDraft: draft.recommendedAction,
+    overridden: actionOverridden || Boolean(lead.deepQualify),
+    computed: computedAction,
+  });
   const preview: DeepQualifyResult = {
     ...draft,
-    recommendedAction: actionOverridden ? draft.recommendedAction : suggestedAction,
+    recommendedAction: suggestedAction,
   };
   const demoNow = isDemoCandidate(preview, lead);
   const brief = preview.buildBrief || (demoNow ? buildBrief(preview, lead) : undefined);
@@ -93,7 +99,11 @@ export function DeepQualifyPanel({
       ...draft,
       businessQuality: quality === "" ? "unknown" : Number(quality),
     };
-    const { result, demoCandidate } = finalizeQualify(withQuality, lead, actionOverridden);
+    const { result, demoCandidate } = finalizeQualify(
+      withQuality,
+      lead,
+      actionOverridden || Boolean(lead.deepQualify),
+    );
     onSave(result, demoCandidate);
   }
 
@@ -240,7 +250,7 @@ export function DeepQualifyPanel({
           <label className="text-sm text-mist">
             Recommended action
             <select
-              value={actionOverridden ? draft.recommendedAction : suggestedAction}
+              value={suggestedAction}
               onChange={(event) => {
                 setActionOverridden(true);
                 patch({ recommendedAction: event.target.value as RecommendedAction });

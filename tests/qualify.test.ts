@@ -8,6 +8,7 @@ import {
   parkedAction,
   prefillDeepQualify,
   recommendAction,
+  resolveSuggestedAction,
   websiteFitFromNiche,
 } from "../lib/qualify";
 import type { DeepQualifyResult, Lead } from "../lib/types";
@@ -236,5 +237,85 @@ describe("prefill and finalize", () => {
     const parked = finalizeQualify(qualify({ businessName: "Johnny's Barber" }), lead({ name: "Johnny's Barber" }), true);
     expect(parked.result.recommendedAction).toBe("HOLD");
     expect(parked.demoCandidate).toBe(false);
+  });
+
+  it("hydrates a saved recommendedAction from lead.deepQualify instead of recomputing", () => {
+    const clancy = lead({
+      name: "Clancy Painting",
+      industryLabel: "Painting",
+      websiteStatus: "CLOSED",
+      deepQualify: qualify({
+        businessName: "Clancy Painting",
+        niche: "Painting",
+        activeStatus: "inactive",
+        recommendedAction: "DNC",
+      }),
+    });
+    const draft = prefillDeepQualify(clancy);
+    expect(draft.recommendedAction).toBe("DNC");
+    expect(draft.activeStatus).toBe("inactive");
+  });
+});
+
+describe("resolveSuggestedAction display priority", () => {
+  const inactiveComputed = {
+    name: "Clancy Painting",
+    phone: "661-555-0100",
+    activeStatus: "inactive" as const,
+    websiteFit: 88,
+    opportunityScore: 82,
+    contactability: { phone: true, email: false, contactForm: false, social: false },
+  };
+
+  it("shows saved/manual DNC for an inactive business instead of computed SKIP, and is not a demo candidate", () => {
+    const computed = recommendAction(inactiveComputed);
+    expect(computed).toBe("SKIP");
+
+    const displayed = resolveSuggestedAction({
+      savedOrDraft: "DNC",
+      overridden: true,
+      computed,
+    });
+    expect(displayed).toBe("DNC");
+    expect(
+      resolveSuggestedAction({
+        savedOrDraft: "DNC",
+        overridden: false,
+        computed,
+      }),
+    ).toBe("DNC");
+
+    const clancy = qualify({
+      businessName: "Clancy Painting",
+      niche: "Painting",
+      activeStatus: "inactive",
+      recommendedAction: "DNC",
+    });
+    expect(isDemoCandidate(clancy)).toBe(false);
+
+    const saved = finalizeQualify(clancy, lead({ name: "Clancy Painting" }), false);
+    expect(saved.result.recommendedAction).toBe("DNC");
+    expect(saved.demoCandidate).toBe(false);
+  });
+
+  it("lets saved HOLD beat computed SKIP, then other saved/manual actions, then the computed suggestion", () => {
+    expect(
+      resolveSuggestedAction({ savedOrDraft: "HOLD", overridden: false, computed: "SKIP" }),
+    ).toBe("HOLD");
+    expect(
+      resolveSuggestedAction({ savedOrDraft: "MAYBE", overridden: true, computed: "SKIP" }),
+    ).toBe("MAYBE");
+    expect(
+      resolveSuggestedAction({ savedOrDraft: "SKIP", overridden: true, computed: "PURSUE" }),
+    ).toBe("SKIP");
+    expect(
+      resolveSuggestedAction({ savedOrDraft: "PURSUE", overridden: true, computed: "SKIP" }),
+    ).toBe("PURSUE");
+    expect(
+      resolveSuggestedAction({ savedOrDraft: "MAYBE", overridden: false, computed: "SKIP" }),
+    ).toBe("SKIP");
+    expect(
+      resolveSuggestedAction({ savedOrDraft: undefined, overridden: false, computed: "SKIP" }),
+    ).toBe("SKIP");
   });
 });

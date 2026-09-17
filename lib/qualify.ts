@@ -239,6 +239,18 @@ export function recommendAction(input: ActionInput): RecommendedAction {
   return "MAYBE";
 }
 
+/** Header/select/save display: saved DNC/HOLD always win; other saved/manual actions beat the computed suggestion. */
+export function resolveSuggestedAction(input: {
+  savedOrDraft?: RecommendedAction | null;
+  overridden?: boolean;
+  computed: RecommendedAction;
+}): RecommendedAction {
+  const saved = input.savedOrDraft;
+  if (saved === "DNC" || saved === "HOLD") return saved;
+  if (input.overridden && saved) return saved;
+  return input.computed;
+}
+
 export function isDemoCandidate(
   result: DeepQualifyResult,
   lead?: { name: string; phone?: string | null },
@@ -456,14 +468,21 @@ export function finalizeQualify(
   actionOverridden: boolean,
 ): { result: DeepQualifyResult; demoCandidate: boolean } {
   const parked = parkedAction({ name: draft.businessName || lead.name, phone: draft.phone ?? lead.phone });
-  const recommendedAction = parked || (actionOverridden ? draft.recommendedAction : recommendAction({
+  const computedAction = recommendAction({
     name: draft.businessName,
     phone: draft.phone,
     activeStatus: draft.activeStatus,
     websiteFit: clampScore(draft.websiteFit),
     opportunityScore: clampScore(draft.opportunityScore),
     contactability: draft.contactability,
-  }));
+  });
+  const recommendedAction =
+    parked ||
+    resolveSuggestedAction({
+      savedOrDraft: draft.recommendedAction,
+      overridden: actionOverridden,
+      computed: computedAction,
+    });
 
   const result: DeepQualifyResult = {
     ...draft,
