@@ -5,6 +5,8 @@ export type Industry = {
   label: string;
   blurb: string;
   tags: OsmTag[];
+  /** Optional Overpass name~ patterns (case-insensitive) when tag hits are thin. */
+  nameHints?: string[];
   sampleNames: string[];
 };
 
@@ -13,7 +15,11 @@ export const INDUSTRIES: Industry[] = [
     id: "painters",
     label: "Painters",
     blurb: "Exterior and interior crews still live on a Facebook album. A photo-led site books the next house.",
-    tags: [{ key: "craft", value: "painter" }],
+    tags: [
+      { key: "craft", value: "painter" },
+      { key: "shop", value: "paint" },
+    ],
+    nameHints: ["painter|painters|painting"],
     sampleNames: [
       "Ridge Color Co.",
       "Northline Painting",
@@ -32,7 +38,9 @@ export const INDUSTRIES: Industry[] = [
     tags: [
       { key: "craft", value: "gardener" },
       { key: "office", value: "landscape_architect" },
+      { key: "shop", value: "garden_centre" },
     ],
+    nameHints: ["landscape|landscaper|landscaping|lawn.?care|lawncare"],
     sampleNames: [
       "Greenline Landscapes",
       "Cedar Path Outdoor",
@@ -48,7 +56,11 @@ export const INDUSTRIES: Industry[] = [
     id: "roofers",
     label: "Roofers",
     blurb: "Storm-season searches convert if the phone and photos are one tap away.",
-    tags: [{ key: "craft", value: "roofer" }],
+    tags: [
+      { key: "craft", value: "roofer" },
+      { key: "shop", value: "roofing" },
+    ],
+    nameHints: ["roofer|roofers|roofing"],
     sampleNames: [
       "Ridge Line Roofing",
       "North Pitch Roof Co.",
@@ -68,7 +80,9 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "mason" },
       { key: "craft", value: "stonemason" },
       { key: "craft", value: "paver" },
+      { key: "shop", value: "masonry" },
     ],
+    nameHints: ["concrete|masonry|mason|paver"],
     sampleNames: [
       "Stonegate Concrete",
       "North Slab Co.",
@@ -88,6 +102,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "fence" },
       { key: "shop", value: "fence" },
     ],
+    nameHints: ["fence|fencing|fencer"],
     sampleNames: [
       "Lot Line Fence Co.",
       "Northgate Fencing",
@@ -103,7 +118,11 @@ export const INDUSTRIES: Industry[] = [
     id: "electricians",
     label: "Electricians",
     blurb: "Panel upgrades and emergency calls go to whoever looks reachable on a phone.",
-    tags: [{ key: "craft", value: "electrician" }],
+    tags: [
+      { key: "craft", value: "electrician" },
+      { key: "shop", value: "electrical" },
+    ],
+    nameHints: ["electrician|electricians|electrical"],
     sampleNames: [
       "Copper Line Electric",
       "Northwire Electric",
@@ -123,6 +142,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "plumber" },
       { key: "shop", value: "plumbing" },
     ],
+    nameHints: ["plumber|plumbers|plumbing"],
     sampleNames: [
       "True North Plumbing",
       "Blue Wren Drain Co.",
@@ -141,7 +161,9 @@ export const INDUSTRIES: Industry[] = [
     tags: [
       { key: "craft", value: "hvac" },
       { key: "craft", value: "hvac_technician" },
+      { key: "shop", value: "air_conditioning" },
     ],
+    nameHints: ["hvac|air.?condition|heating.?and.?cooling"],
     sampleNames: [
       "Rapid Coil HVAC",
       "Summit Air & Heat",
@@ -161,7 +183,9 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "window_cleaner" },
       { key: "craft", value: "cleaner" },
       { key: "office", value: "cleaning" },
+      { key: "shop", value: "cleaning" },
     ],
+    nameHints: ["clean(ing|ers?)|janitorial|maid.?service"],
     sampleNames: [
       "Northlight Cleaning",
       "Harbor Shine Co.",
@@ -181,6 +205,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "shop", value: "car_detailing" },
       { key: "amenity", value: "car_wash" },
     ],
+    nameHints: ["detail(ing)?|auto.?detail|car.?detail"],
     sampleNames: [
       "Harbor Detail Co.",
       "Northline Mobile Shine",
@@ -200,6 +225,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "tree_surgeon" },
       { key: "craft", value: "arborist" },
     ],
+    nameHints: ["tree.?service|arborist|tree.?surgeon|tree.?care"],
     sampleNames: [
       "North Crown Tree Co.",
       "Harbor Arbor Works",
@@ -218,7 +244,9 @@ export const INDUSTRIES: Industry[] = [
     tags: [
       { key: "office", value: "moving_company" },
       { key: "shop", value: "junk" },
+      { key: "craft", value: "rubble" },
     ],
+    nameHints: ["junk.?remov|junk.?haul|haul.?away|trash.?remov"],
     sampleNames: [
       "Clear Lot Junk Co.",
       "North Haul Removal",
@@ -238,6 +266,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "shop", value: "garage_doors" },
       { key: "shop", value: "doors" },
     ],
+    nameHints: ["garage.?door"],
     sampleNames: [
       "Northgate Door Co.",
       "Harbor Garage Doors",
@@ -257,7 +286,9 @@ export const INDUSTRIES: Industry[] = [
       { key: "shop", value: "flooring" },
       { key: "craft", value: "floorer" },
       { key: "craft", value: "tiler" },
+      { key: "shop", value: "tiles" },
     ],
+    nameHints: ["flooring|floorer|tile|tiler"],
     sampleNames: [
       "Harbor Floor Co.",
       "North Plank Flooring",
@@ -277,7 +308,9 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "handyman" },
       { key: "craft", value: "builder" },
       { key: "office", value: "construction_company" },
+      { key: "craft", value: "carpenter" },
     ],
+    nameHints: ["handyman|general.?contract|remodel"],
     sampleNames: [
       "Hearth & Timber",
       "North Frame Builders",
@@ -294,6 +327,7 @@ export const INDUSTRIES: Industry[] = [
     label: "Pressure washing",
     blurb: "Driveways and storefronts sell on before/after shots.",
     tags: [{ key: "craft", value: "pressure_washing" }],
+    nameHints: ["pressure.?wash|power.?wash"],
     sampleNames: [
       "North Blast Wash Co.",
       "Harbor Pressure Works",
@@ -330,6 +364,7 @@ export const INDUSTRIES: Industry[] = [
     label: "Towing",
     blurb: "Night calls go to whoever looks open and local. A simple site beats a buried listing.",
     tags: [{ key: "amenity", value: "towing" }],
+    nameHints: ["tow(ing|er|truck)?|wrecker|roadside"],
     sampleNames: [
       "North Hook Towing",
       "Harbor Tow Co.",
@@ -349,6 +384,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "shop", value: "pest_control" },
       { key: "craft", value: "pest_control" },
     ],
+    nameHints: ["pest.?control|exterminat"],
     sampleNames: [
       "Northfield Pest Co.",
       "Harbor Bug Works",
@@ -368,7 +404,9 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "window_construction" },
       { key: "shop", value: "windows" },
       { key: "shop", value: "doors" },
+      { key: "craft", value: "glazier" },
     ],
+    nameHints: ["window|door.?install|glazier"],
     sampleNames: [
       "Harbor Glass & Door",
       "Northlight Windows",
@@ -388,6 +426,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "shop", value: "swimming_pool" },
       { key: "craft", value: "swimming_pool_installer" },
     ],
+    nameHints: ["pool.?service|pool.?care|pool.?repair"],
     sampleNames: [
       "Harbor Pool Co.",
       "North Blue Pool Service",
@@ -407,6 +446,7 @@ export const INDUSTRIES: Industry[] = [
       { key: "craft", value: "solar_thermal_installer" },
       { key: "office", value: "energy_supplier" },
     ],
+    nameHints: ["solar"],
     sampleNames: [
       "North Sun Co.",
       "Harbor Solar Works",
